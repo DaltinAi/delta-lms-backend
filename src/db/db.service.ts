@@ -1,60 +1,94 @@
-import { Injectable, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
-import { Pool, PoolClient } from 'pg';
+import { Injectable, OnModuleInit, OnModuleDestroy, Logger } from '@nestjs/common';
+import { Pool, PoolClient, QueryResult, QueryResultRow } from 'pg';
 
 @Injectable()
 export class DbService implements OnModuleInit, OnModuleDestroy {
   private pool: Pool;
-  private readonly tablePrefix = 'delta_';
-  readonly usersTable = this.getTableName('users');
-  readonly refreshTokensTable = this.getTableName('refresh_tokens');
+  private static instance: DbService;
+  public readonly usersTable: string;
+  public readonly refreshTokensTable: string;
 
   constructor() {
-    const host = process.env.DB_HOST;
-    const port = Number(process.env.DB_PORT || 5432);
-    const user = process.env.DB_USERNAME;
-    const password = process.env.DB_PASSWORD;
-    const database = process.env.DB_NAME;
-    const isLocalDatabase =
-      host === 'localhost' || host === '127.0.0.1' || host === undefined;
-    const useSsl = !isLocalDatabase;
+    if (DbService.instance) {
+      return DbService.instance;
+    }
 
     this.pool = new Pool({
-      host,
-      port,
-      user,
-      password,
-      database,
-      ssl: useSsl ? { rejectUnauthorized: false } : false,
-      connectionTimeoutMillis: 10000,
-      idleTimeoutMillis: 30000,
+      host: process.env.DB_HOST,
+      port: parseInt(process.env.DB_PORT || '5432', 10),
+      user: process.env.DB_USERNAME,
+      password: process.env.DB_PASSWORD,
+      database: process.env.DB_NAME,
+      ssl: {
+        rejectUnauthorized: false,
+      },
+      max: 20, // Maximum number of clients in the pool
+      idleTimeoutMillis: 30000, // Close idle clients after 30 seconds
+      connectionTimeoutMillis: 10000, // Return an error after 10 seconds if connection could not be established
+      maxUses: 7500, // Close and replace a connection after it has been used 7500 times
     });
+
+    this.usersTable = 'delta_users';
+    this.refreshTokensTable = 'delta_refresh_tokens';
+
+    DbService.instance = this;
   }
 
   async onModuleInit() {
-    // Test connection
     try {
+      // Test the connection during initialization
       const client = await this.pool.connect();
+      Logger.log('Successfully connected to database');
       client.release();
-      console.log('Successfully connected to PostgreSQL');
-    } catch (err) {
-      console.error('Failed to connect to PostgreSQL:', err);
+    } catch (error) {
+      Logger.error('Failed to connect to database:', error);
+      throw error;
     }
+
+    // Handle pool errors
+    this.pool.on('error', (err: Error) => {
+      Logger.error('Unexpected error on idle client', err);
+      process.exit(1);
+    });
   }
 
   async onModuleDestroy() {
     await this.pool.end();
+    Logger.log('Database connection pool closed');
   }
 
-  async query(text: string, params?: any[]) {
-    return this.pool.query(text, params);
+  /**
+   * Execute a query with parameters
+   */
+  async query<T extends QueryResultRow = any>(text: string, params?: any[]): Promise<QueryResult<T>> {
+    const start = Date.now();
+    try {
+      const result = await this.pool.query(text, params);
+      const duration = Date.now() - start;
+
+      // Log slow queries (over 1 second)
+      if (duration > 1000) {
+        Logger.warn(`Slow query (${duration}ms): ${text}`);
+      }
+
+      return result;
+    } catch (error) {
+      Logger.error(`Query failed (${Date.now() - start}ms): ${text}`, error);
+      throw error;
+    }
   }
 
-  async withTransaction<T>(handler: (client: PoolClient) => Promise<T>) {
+  /**
+   * Execute queries within a transaction
+   */
+  async transaction<T>(
+    callback: (client: PoolClient) => Promise<T>,
+  ): Promise<T> {
     const client = await this.pool.connect();
 
     try {
       await client.query('BEGIN');
-      const result = await handler(client);
+      const result = await callback(client);
       await client.query('COMMIT');
       return result;
     } catch (error) {
@@ -65,7 +99,34 @@ export class DbService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  private getTableName(baseName: string) {
-    return `${this.tablePrefix}${baseName}`;
+  /**
+   * Get a client from the pool
+   */
+  async getClient(): Promise<PoolClient> {
+    return await this.pool.connect();
+  }
+
+  /**
+   * Health check
+   */
+  async healthCheck(): Promise<boolean> {
+    try {
+      await this.query('SELECT 1');
+      return true;
+    } catch (error) {
+      Logger.error('Health check failed:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Get pool statistics
+   */
+  getPoolStats() {
+    return {
+      totalCount: this.pool.totalCount,
+      idleCount: this.pool.idleCount,
+      waitingCount: this.pool.waitingCount,
+    };
   }
 }

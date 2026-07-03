@@ -3,6 +3,7 @@ import {
   ConflictException,
   UnauthorizedException,
 } from '@nestjs/common';
+import { PoolClient } from 'pg';
 import { DbService } from '../db/db.service';
 import { JwtService } from '@nestjs/jwt';
 import { RegisterDto } from './dto/register.dto';
@@ -94,7 +95,7 @@ export class AuthService {
       throw new UnauthorizedException('Invalid refresh token signature');
     }
 
-    return this.dbService.withTransaction(async (client) => {
+    return this.dbService.transaction(async (client: PoolClient) => {
       // Lock the token row so only one refresh can rotate it at a time.
       const tokenResult = await client.query(
         `SELECT id, user_id, is_used, is_revoked, expires_at FROM ${this.dbService.refreshTokensTable} WHERE token = $1 FOR UPDATE`,
