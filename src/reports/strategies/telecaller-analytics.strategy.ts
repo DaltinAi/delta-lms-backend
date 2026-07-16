@@ -7,13 +7,18 @@ export interface AnalyticsParams {
   endDate: string;
   targetUserId?: string;
   requesterId?: string;
+  companyId: string;
 }
 
-const COMPANY_ID = process.env.COMPANY_ID ?? '2a2db2e1-6ec4-47f6-b3ad-6be0174833f7';
+import { TableConstants } from '../../utils/table-constants';
+import { ErrorService } from '../../common/error/error.service';
 
 @Injectable()
 export class TelecallerAnalyticsStrategy {
-  constructor(private readonly dbService: DbService) {}
+  constructor(
+    private readonly dbService: DbService,
+    private readonly errorService: ErrorService
+  ) {}
 
   async getAnalytics(params: AnalyticsParams): Promise<any> {
     try {
@@ -22,10 +27,11 @@ export class TelecallerAnalyticsStrategy {
 
       // Target telecaller is either the specified one or the requester themselves
       const targetUserId = params.targetUserId ?? params.requesterId;
+      const companyId = params.companyId;
 
       // Leads-based WHERE: scoped to user and date range
-      const leadsWhere = `l.is_deleted = false AND l.assigned_to = $1 AND l.created_at >= $2 AND l.created_at <= $3`;
-      const leadsParams = [targetUserId, finalStartDate, finalEndDate];
+      const leadsWhere = `l.is_deleted = false AND l.company_id = $1 AND l.assigned_to = $2 AND l.created_at >= $3 AND l.created_at <= $4`;
+      const leadsParams = [companyId, targetUserId, finalStartDate, finalEndDate];
 
       // Run all queries in parallel
       const [
@@ -44,8 +50,8 @@ export class TelecallerAnalyticsStrategy {
              SUM(CASE WHEN LOWER(s.stage_type) = 'cold'       THEN 1 ELSE 0 END)::int AS "coldLeads",
              SUM(CASE WHEN LOWER(s.stage_type) = 'interested' THEN 1 ELSE 0 END)::int AS "interestedLeads",
              SUM(CASE WHEN LOWER(s.stage_type) = 'enrolled'   THEN 1 ELSE 0 END)::int AS "enrolledLeads"
-           FROM tbl_leads l
-           LEFT JOIN tbl_stages s ON s.id = l.current_stage_id
+           FROM ${TableConstants.LEADS} l
+           LEFT JOIN ${TableConstants.STAGES} s ON s.id = l.current_stage_id
            WHERE ${leadsWhere}`,
           leadsParams,
         ),
@@ -53,18 +59,19 @@ export class TelecallerAnalyticsStrategy {
         // 2. Untouched leads in range
         this.dbService.query(
           `SELECT COUNT(*)::int AS "untouchedLeads"
-               FROM tbl_leads l
+               FROM ${TableConstants.LEADS} l
                WHERE l.is_deleted = false
-                 AND l.assigned_to = $1
-                 AND l.created_at >= $2
-                 AND l.created_at <= $3
+                 AND l.company_id = $1
+                 AND l.assigned_to = $2
+                 AND l.created_at >= $3
+                 AND l.created_at <= $4
                  AND NOT EXISTS (
-                   SELECT 1 FROM tbl_lead_stage_history h
+                   SELECT 1 FROM ${TableConstants.LEAD_STAGE_HISTORY} h
                    WHERE h.lead_id = l.id
-                     AND h.created_at >= $2
-                     AND h.created_at <= $3
+                     AND h.created_at >= $3
+                     AND h.created_at <= $4
                      AND h.id != (
-                       SELECT id FROM tbl_lead_stage_history
+                       SELECT id FROM ${TableConstants.LEAD_STAGE_HISTORY}
                        WHERE lead_id = l.id ORDER BY created_at ASC LIMIT 1
                      )
                  )`,
@@ -75,15 +82,15 @@ export class TelecallerAnalyticsStrategy {
         this.dbService.query(
           `SELECT
              COUNT(*)::int AS "totalFollowUpsCreated",
-             SUM(CASE WHEN fu.completed_at >= $1 AND fu.completed_at <= $2 THEN 1 ELSE 0 END)::int AS "completedFollowUps"
-           FROM tbl_follow_ups fu
-           WHERE fu.created_at >= $1 AND fu.created_at <= $2 AND fu.created_by = $3`,
-          [finalStartDate, finalEndDate, targetUserId],
+             SUM(CASE WHEN fu.completed_at >= $3 AND fu.completed_at <= $4 THEN 1 ELSE 0 END)::int AS "completedFollowUps"
+           FROM ${TableConstants.FOLLOW_UPS} fu
+           WHERE fu.company_id = $1 AND fu.created_by = $2 AND fu.created_at >= $3 AND fu.created_at <= $4`,
+          [companyId, targetUserId, finalStartDate, finalEndDate],
         ),
 
         // 4. Call Metrics from Firebase
         getCallMetrics(
-          COMPANY_ID,
+          companyId,
           finalStartDate,
           finalEndDate,
           targetUserId,
@@ -91,7 +98,7 @@ export class TelecallerAnalyticsStrategy {
 
         // 5. Hourly Activity from Firebase
         getHourlyCallActivity(
-          COMPANY_ID,
+          companyId,
           finalStartDate,
           finalEndDate,
           targetUserId,

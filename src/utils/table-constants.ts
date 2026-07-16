@@ -1,0 +1,15 @@
+export const TableConstants = {
+  COMPANIES: 'companies_delta',
+  USERS: 'users_delta',
+  STAGES: 'stages_delta',
+  LEADS: 'leads_delta',
+  LEAD_STAGE_HISTORY: 'lead_stage_history_delta',
+  FOLLOW_UPS: 'follow_ups_delta',
+  VISIT_HISTORY: 'visit_history_delta',
+  ROLE_STAGE_PERMISSIONS: 'role_stage_permissions_delta',
+  STAGE_GROUPS: 'stage_groups_delta',
+  STAGE_GROUP_MEMBERS: 'stage_group_members_delta',
+  REFRESH_TOKENS: 'refresh_tokens_delta',
+  PASSWORD_RESETS: 'password_resets_delta',
+  USER_INVITATIONS: 'user_invitations_delta',
+};

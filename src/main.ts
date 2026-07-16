@@ -14,6 +14,8 @@ import fastifyMultipart from '@fastify/multipart';
 import helmet from '@fastify/helmet';
 import { randomUUID } from 'crypto';
 import { initializeRequestHooks } from './utils/logger';
+import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
+import { TransformInterceptor } from './common/interceptors/transform.interceptor';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestFastifyApplication>(
@@ -53,7 +55,7 @@ async function bootstrap() {
     .setTitle('Delta CRM API')
     .setDescription('Delta CRM API Documentation')
     .setVersion('1.0')
-    .addServer('http://localhost:5000/', 'Local environment')
+    .addServer('http://localhost:8080/', 'Local environment')
     .addTag('Delta CRM')
     .addBearerAuth(
       {
@@ -104,6 +106,11 @@ async function bootstrap() {
     }),
   );
   app.useGlobalFilters(new GlobalExceptionFilter());
+
+  app.useGlobalInterceptors(
+    new LoggingInterceptor(),
+    new TransformInterceptor(),
+  );
 
   const port = Number(process.env.PORT) || 8080;
   await app.listen(port, '0.0.0.0');

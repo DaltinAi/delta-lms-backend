@@ -1,5 +1,11 @@
-import { Injectable, OnModuleInit, OnModuleDestroy, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  OnModuleInit,
+  OnModuleDestroy,
+  Logger,
+} from '@nestjs/common';
 import { Pool, PoolClient, QueryResult, QueryResultRow } from 'pg';
+import { TableConstants } from '../utils/table-constants';
 
 @Injectable()
 export class DbService implements OnModuleInit, OnModuleDestroy {
@@ -7,6 +13,7 @@ export class DbService implements OnModuleInit, OnModuleDestroy {
   private static instance: DbService;
   public readonly usersTable: string;
   public readonly refreshTokensTable: string;
+  public readonly passwordResetsTable: string;
 
   constructor() {
     if (DbService.instance) {
@@ -28,8 +35,9 @@ export class DbService implements OnModuleInit, OnModuleDestroy {
       maxUses: 7500, // Close and replace a connection after it has been used 7500 times
     });
 
-    this.usersTable = 'delta_users';
-    this.refreshTokensTable = 'delta_refresh_tokens';
+    this.usersTable = TableConstants.USERS;
+    this.refreshTokensTable = TableConstants.REFRESH_TOKENS;
+    this.passwordResetsTable = TableConstants.PASSWORD_RESETS;
 
     DbService.instance = this;
   }
@@ -60,7 +68,10 @@ export class DbService implements OnModuleInit, OnModuleDestroy {
   /**
    * Execute a query with parameters
    */
-  async query<T extends QueryResultRow = any>(text: string, params?: any[]): Promise<QueryResult<T>> {
+  async query<T extends QueryResultRow = any>(
+    text: string,
+    params?: any[],
+  ): Promise<QueryResult<T>> {
     const start = Date.now();
     try {
       const result = await this.pool.query(text, params);
