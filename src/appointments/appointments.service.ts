@@ -83,6 +83,7 @@ export class AppointmentsService {
     offset: number = 0,
     tab?: string,
     branch?: string,
+    search?: string,
   ) {
     try {
       let baseConditions = `a.company_id = $1 AND a.is_deleted = false`;
@@ -99,22 +100,25 @@ export class AppointmentsService {
       }
 
       // Branch Filtering
-      let joinLeads = false;
       if (branch) {
-        joinLeads = true;
         baseConditions += ` AND LOWER(TRIM(l.data->>'branch')) = $${paramIndex}`;
         queryParams.push(branch.toLowerCase().trim());
         paramIndex++;
       }
 
-      let query = `
-        SELECT a.*, COUNT(a.id) OVER() AS total_count
-        FROM ${TableConstants.APPOINTMENTS} a
-      `;
-
-      if (joinLeads) {
-        query += ` JOIN ${TableConstants.LEADS} l ON a.lead_id = l.id`;
+      // Search Filtering
+      if (search) {
+        const searchVal = `%${search.toLowerCase().trim()}%`;
+        baseConditions += ` AND (LOWER(l.first_name) LIKE $${paramIndex} OR LOWER(l.last_name) LIKE $${paramIndex} OR LOWER(l.phone) LIKE $${paramIndex} OR LOWER(l.email) LIKE $${paramIndex})`;
+        queryParams.push(searchVal);
+        paramIndex++;
       }
+
+      let query = `
+        SELECT a.*, l.first_name, l.last_name, l.phone, l.data as lead_data, COUNT(a.id) OVER() AS total_count
+        FROM ${TableConstants.APPOINTMENTS} a
+        JOIN ${TableConstants.LEADS} l ON a.lead_id = l.id
+      `;
 
       query += `
         WHERE ${baseConditions}

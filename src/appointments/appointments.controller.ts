@@ -61,6 +61,7 @@ export class AppointmentsController {
     @Query('offset') offset?: number,
     @Query('tab') tab?: string,
     @Query('branch') branch?: string,
+    @Query('search') search?: string,
   ) {
     try {
       const user = req.user;
@@ -70,6 +71,7 @@ export class AppointmentsController {
         offset ? +offset : 0,
         tab,
         branch,
+        search,
       );
       return { status: 200, ...appointmentsData };
     } catch (error: any) {
