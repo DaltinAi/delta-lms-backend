@@ -16,6 +16,7 @@ import { StageGroupsModule } from './stage-groups/stage-groups.module';
 import { RolePermissionsModule } from './role-permissions/role-permissions.module';
 import { CallsModule } from './calls/calls.module';
 import { ErrorModule } from './common/error/error.module';
+import { AppointmentsModule } from './appointments/appointments.module';
 
 @Module({
   imports: [
@@ -34,6 +35,7 @@ import { ErrorModule } from './common/error/error.module';
     StageGroupsModule,
     RolePermissionsModule,
     CallsModule,
+    AppointmentsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

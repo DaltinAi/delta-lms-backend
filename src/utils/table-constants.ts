@@ -12,4 +12,5 @@ export const TableConstants = {
   REFRESH_TOKENS: 'refresh_tokens_delta',
   PASSWORD_RESETS: 'password_resets_delta',
   USER_INVITATIONS: 'user_invitations_delta',
+  APPOINTMENTS: 'appointments_delta',
 };
