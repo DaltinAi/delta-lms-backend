@@ -45,11 +45,11 @@ export class TelecallerAnalyticsStrategy {
         this.dbService.query(
           `SELECT
              COUNT(*)::int                                                              AS "totalLeads",
-             SUM(CASE WHEN LOWER(s.stage_type) = 'new'        THEN 1 ELSE 0 END)::int AS "newLeads",
-             SUM(CASE WHEN LOWER(s.stage_type) = 'pending'    THEN 1 ELSE 0 END)::int AS "pendingLeads",
-             SUM(CASE WHEN LOWER(s.stage_type) = 'cold'       THEN 1 ELSE 0 END)::int AS "coldLeads",
-             SUM(CASE WHEN LOWER(s.stage_type) = 'interested' THEN 1 ELSE 0 END)::int AS "interestedLeads",
-             SUM(CASE WHEN LOWER(s.stage_type) = 'enrolled'   THEN 1 ELSE 0 END)::int AS "enrolledLeads"
+             SUM(CASE WHEN LOWER(s.key) = 'new'        THEN 1 ELSE 0 END)::int AS "newLeads",
+             SUM(CASE WHEN LOWER(s.key) = 'pending'    THEN 1 ELSE 0 END)::int AS "pendingLeads",
+             SUM(CASE WHEN LOWER(s.key) = 'cold'       THEN 1 ELSE 0 END)::int AS "coldLeads",
+             SUM(CASE WHEN LOWER(s.key) = 'interested' THEN 1 ELSE 0 END)::int AS "interestedLeads",
+             SUM(CASE WHEN LOWER(s.key) = 'enrolled'   THEN 1 ELSE 0 END)::int AS "enrolledLeads"
            FROM ${TableConstants.LEADS} l
            LEFT JOIN ${TableConstants.STAGES} s ON s.id = l.current_stage_id
            WHERE ${leadsWhere}`,

@@ -69,9 +69,9 @@ export class LeadsController {
   }
 
   @Get()
-  async getLeads(@Query('filter') filter: string) {
+  async getLeads(@Query('filter') filter: string, @Query('search') search: string) {
     try {
-      const leadsData = await this.leadsService.getLeads(filter);
+      const leadsData = await this.leadsService.getLeads(filter, search);
       return { status: 200, ...leadsData };
     } catch (error: any) {
       this.errorService.errorThrower(error.status || 500, {

@@ -315,32 +315,85 @@ export class LeadsService {
   }
 
   /**
-   * Retrieves leads based on filters.
+   * Retrieves leads based on filters and search.
    */
-  async getLeads(filterStr?: string): Promise<{ data: any[]; total: number }> {
+  async getLeads(filterStr?: string, searchStr?: string): Promise<{ data: any[]; total: number }> {
     let limit = 10;
     let offset = 0;
+    const filterClauses: string[] = ['l.is_deleted = false'];
+    const values: any[] = [];
+    let idx = 1;
+    let joinStages = false;
+    let joinFollowUps = false;
 
     if (filterStr) {
       const parts = filterStr.split(',');
       for (const p of parts) {
         const [k, v] = p.split('=');
-        if (k === 'limit' && v) limit = parseInt(v, 10);
-        if (k === 'offset' && v) offset = parseInt(v, 10);
+        if (!v) continue;
+        const val = decodeURIComponent(v);
+
+        if (k === 'limit') limit = parseInt(val, 10);
+        else if (k === 'offset') offset = parseInt(val, 10);
+        else if (k === 'stageId') {
+          filterClauses.push(`l.current_stage_id = $${idx++}`);
+          values.push(val);
+        }
+        else if (k === 'stageType') {
+          filterClauses.push(`s.key = $${idx++}`);
+          values.push(val);
+          joinStages = true;
+        }
+        else if (k === 'startDate') {
+          filterClauses.push(`l.created_at >= $${idx++}`);
+          values.push(val);
+        }
+        else if (k === 'endDate') {
+          filterClauses.push(`l.created_at <= $${idx++}`);
+          values.push(val);
+        }
+        else if (k === 'source') {
+          filterClauses.push(`l.data->>'source' = $${idx++}`);
+          values.push(val);
+        }
+        else if (k === 'country' || k === 'interestedCountry') {
+          filterClauses.push(`l.data->>'country' = $${idx++}`);
+          values.push(val);
+        }
+        else if (k === 'tab') {
+          // Additional logic for 'tab' can be placed here if needed.
+          // For now, stageType handles the primary filtering.
+        }
       }
     }
 
+    if (searchStr) {
+        const decodedSearch = decodeURIComponent(searchStr);
+        filterClauses.push(`(l.first_name ILIKE $${idx} OR l.last_name ILIKE $${idx} OR l.phone ILIKE $${idx} OR l.email ILIKE $${idx})`);
+        values.push(`%${decodedSearch}%`);
+        idx++;
+    }
+
     try {
-      // Single query: fetch paginated rows + total count using window function
-      // Avoids a second full-table scan for COUNT(*)
-      const query = `
-        SELECT *, COUNT(*) OVER() AS total_count
-        FROM ${TableConstants.LEADS}
-        WHERE is_deleted = false
-        ORDER BY created_at DESC
-        LIMIT $1 OFFSET $2
+      let query = `
+        SELECT l.*, COUNT(l.id) OVER() AS total_count
+        FROM ${TableConstants.LEADS} l
       `;
-      const result = await this.dbService.query(query, [limit, offset]);
+      if (joinStages) {
+        query += ` LEFT JOIN ${TableConstants.STAGES} s ON l.current_stage_id = s.id`;
+      }
+      if (joinFollowUps) {
+        query += ` LEFT JOIN ${TableConstants.FOLLOW_UPS} f ON f.lead_id = l.id`;
+      }
+      
+      query += ` WHERE ${filterClauses.join(' AND ')}
+        ORDER BY l.created_at DESC
+        LIMIT $${idx++} OFFSET $${idx++}
+      `;
+      
+      values.push(limit, offset);
+
+      const result = await this.dbService.query(query, values);
 
       const total =
         result.rows.length > 0
