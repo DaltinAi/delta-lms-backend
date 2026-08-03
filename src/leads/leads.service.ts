@@ -284,6 +284,37 @@ export class LeadsService {
   }
 
   /**
+   * Checks if a lead with the given phone number already exists in the company.
+   * Scoped to the caller's company to prevent cross-company data leaks.
+   */
+  async checkPhoneExists(
+    companyId: string,
+    phone: string,
+  ): Promise<{ exists: boolean; leadId?: string; name?: string }> {
+    try {
+      const result = await this.dbService.query(
+        `SELECT id, first_name, last_name FROM ${TableConstants.LEADS}
+         WHERE company_id = $1 AND phone = $2 AND is_deleted = false LIMIT 1`,
+        [companyId, phone],
+      );
+
+      if (result.rows.length === 0) {
+        return { exists: false };
+      }
+
+      const lead = result.rows[0];
+      return {
+        exists: true,
+        leadId: lead.id,
+        name: `${lead.first_name || ''} ${lead.last_name || ''}`.trim(),
+      };
+    } catch (error) {
+      console.error('[LeadsService] Error checking phone existence:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Retrieves leads based on filters.
    */
   async getLeads(filterStr?: string): Promise<{ data: any[]; total: number }> {
@@ -300,15 +331,26 @@ export class LeadsService {
     }
 
     try {
-      const query = `SELECT * FROM ${TableConstants.LEADS} WHERE is_deleted = false ORDER BY created_at DESC LIMIT $1 OFFSET $2`;
+      // Single query: fetch paginated rows + total count using window function
+      // Avoids a second full-table scan for COUNT(*)
+      const query = `
+        SELECT *, COUNT(*) OVER() AS total_count
+        FROM ${TableConstants.LEADS}
+        WHERE is_deleted = false
+        ORDER BY created_at DESC
+        LIMIT $1 OFFSET $2
+      `;
       const result = await this.dbService.query(query, [limit, offset]);
 
-      const countResult = await this.dbService.query(
-        `SELECT COUNT(*) FROM ${TableConstants.LEADS} WHERE is_deleted = false`,
-      );
-      const total = parseInt(countResult.rows[0].count, 10);
+      const total =
+        result.rows.length > 0
+          ? parseInt(result.rows[0].total_count, 10)
+          : 0;
 
-      return { data: result.rows, total };
+      // Strip total_count from returned rows so it doesn't leak into the response
+      const data = result.rows.map(({ total_count, ...row }) => row);
+
+      return { data, total };
     } catch (error) {
       console.error('[LeadsService] Error fetching leads:', error);
       throw error;

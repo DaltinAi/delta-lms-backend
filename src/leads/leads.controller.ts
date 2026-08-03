@@ -130,6 +130,30 @@ export class LeadsController {
     }
   }
 
+  @Get('check-phone')
+  async checkPhone(
+    @Query('phone') phone: string,
+    @CurrentUser() user: any,
+  ) {
+    try {
+      if (!phone) {
+        this.errorService.errorThrower(400, {
+          message: 'phone query parameter is required',
+        });
+      }
+      const result = await this.leadsService.checkPhoneExists(
+        user.company_id || '00000000-0000-0000-0000-000000000000',
+        phone,
+      );
+      return { status: 200, ...result };
+    } catch (error: any) {
+      this.errorService.errorThrower(error.status || 500, {
+        message: error.message,
+        details: error,
+      });
+    }
+  }
+
   @Get(':id')
   async getLeadById(@Param('id') id: string) {
     try {

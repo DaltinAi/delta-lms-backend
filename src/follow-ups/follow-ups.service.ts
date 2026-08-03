@@ -50,26 +50,51 @@ export class FollowUpsService {
   }
 
   async getFollowUps(companyId: string, filterStr?: string) {
-    let leadId = null;
+    let leadId: string | null = null;
+    let userId: string | null = null;
+    let startDate: string | null = null;
+    let endDate: string | null = null;
     let limit = 50;
 
     if (filterStr) {
       const parts = filterStr.split(',');
       for (const p of parts) {
         const [k, v] = p.split('=');
-        if (k === 'leadId' && v) leadId = v;
+        if (!k || !v) continue;
+        if (k === 'leadId') leadId = v;
+        if (k === 'userId') userId = v;
+        if (k === 'startDate') startDate = v;
+        if (k === 'endDate') endDate = v;
+        if (k === 'limit') limit = parseInt(v, 10);
       }
     }
 
-    let query = `SELECT * FROM ${TableConstants.FOLLOW_UPS} WHERE company_id = $1`;
     const params: any[] = [companyId];
+    let paramIndex = 2;
+
+    let query = `SELECT * FROM ${TableConstants.FOLLOW_UPS} WHERE company_id = $1`;
 
     if (leadId) {
+      query += ` AND lead_id = $${paramIndex++}`;
       params.push(leadId);
-      query += ` AND lead_id = $2`;
     }
 
-    query += ` ORDER BY scheduled_for ASC LIMIT $${params.length + 1}`;
+    if (userId) {
+      query += ` AND created_by = $${paramIndex++}`;
+      params.push(userId);
+    }
+
+    if (startDate) {
+      query += ` AND scheduled_for >= $${paramIndex++}`;
+      params.push(startDate);
+    }
+
+    if (endDate) {
+      query += ` AND scheduled_for <= $${paramIndex++}`;
+      params.push(endDate + 'T23:59:59.999Z');
+    }
+
+    query += ` ORDER BY scheduled_for ASC LIMIT $${paramIndex}`;
     params.push(limit);
 
     const result = await this.dbService.query(query, params);

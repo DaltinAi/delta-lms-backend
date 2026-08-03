@@ -21,13 +21,13 @@ export class LoggingInterceptor implements NestInterceptor {
     const requestMessage = `Incoming Request: ${method} ${originalUrl} - IP: ${ip}`;
     this.logger.log(requestMessage);
 
-    if (Object.keys(body).length) {
+    if (body && Object.keys(body).length) {
       this.logger.debug(`Body: ${JSON.stringify(body)}`);
     }
-    if (Object.keys(query).length) {
+    if (query && Object.keys(query).length) {
       this.logger.debug(`Query: ${JSON.stringify(query)}`);
     }
-    if (Object.keys(params).length) {
+    if (params && Object.keys(params).length) {
       this.logger.debug(`Params: ${JSON.stringify(params)}`);
     }
 

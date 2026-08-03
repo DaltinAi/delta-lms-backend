@@ -62,9 +62,9 @@ export class AuthService {
   async login(loginDto: LoginDto) {
     const { email, password } = loginDto;
 
-    // Find user
+    // Find user — LIMIT 1 because email is unique; stops scan immediately on first match
     const userResult = await this.dbService.query(
-      `SELECT id, email, password, first_name, last_name, role, company_id FROM ${this.dbService.usersTable} WHERE email = $1`,
+      `SELECT id, email, password, first_name, last_name, role, company_id FROM ${this.dbService.usersTable} WHERE email = $1 LIMIT 1`,
       [email],
     );
 
