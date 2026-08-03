@@ -90,17 +90,11 @@ export class AppointmentsService {
       const queryParams: any[] = [companyId];
       let paramIndex = 2;
 
-      // Tab Filtering
-      if (tab === 'Today') {
-        baseConditions += ` AND a.appointment_date = CURRENT_DATE`;
-      } else if (tab === 'ComingUp') {
-        baseConditions += ` AND a.appointment_date > CURRENT_DATE`;
-      } else if (tab === 'Overdue') {
-        baseConditions += ` AND a.appointment_date < CURRENT_DATE AND a.status NOT IN ('COMPLETED', 'CANCELLED')`;
-      }
+      let joinLeads = false;
 
       // Branch Filtering
       if (branch) {
+        joinLeads = true;
         baseConditions += ` AND LOWER(TRIM(l.data->>'branch')) = $${paramIndex}`;
         queryParams.push(branch.toLowerCase().trim());
         paramIndex++;
@@ -108,20 +102,48 @@ export class AppointmentsService {
 
       // Search Filtering
       if (search) {
+        joinLeads = true;
         const searchVal = `%${search.toLowerCase().trim()}%`;
         baseConditions += ` AND (LOWER(l.first_name) LIKE $${paramIndex} OR LOWER(l.last_name) LIKE $${paramIndex} OR LOWER(l.phone) LIKE $${paramIndex} OR LOWER(l.email) LIKE $${paramIndex})`;
         queryParams.push(searchVal);
         paramIndex++;
       }
 
+      // --- Query 1: Get Counts for All Tabs ---
+      let countsQuery = `
+        SELECT 
+          SUM(CASE WHEN a.appointment_date = CURRENT_DATE THEN 1 ELSE 0 END) AS today_count,
+          SUM(CASE WHEN a.appointment_date > CURRENT_DATE THEN 1 ELSE 0 END) AS coming_up_count,
+          SUM(CASE WHEN a.appointment_date < CURRENT_DATE AND a.status NOT IN ('COMPLETED', 'CANCELLED') THEN 1 ELSE 0 END) AS overdue_count
+        FROM ${TableConstants.APPOINTMENTS} a
+      `;
+      if (joinLeads) {
+        countsQuery += ` JOIN ${TableConstants.LEADS} l ON a.lead_id = l.id`;
+      }
+      countsQuery += ` WHERE ${baseConditions}`;
+
+      const countsResult = await this.dbService.query(countsQuery, queryParams);
+      const counts = {
+        today: parseInt(countsResult.rows[0].today_count || '0', 10),
+        comingUp: parseInt(countsResult.rows[0].coming_up_count || '0', 10),
+        overdue: parseInt(countsResult.rows[0].overdue_count || '0', 10),
+      };
+
+      // --- Query 2: Get Paginated Data ---
+      let dataConditions = baseConditions;
+      if (tab === 'Today') {
+        dataConditions += ` AND a.appointment_date = CURRENT_DATE`;
+      } else if (tab === 'ComingUp') {
+        dataConditions += ` AND a.appointment_date > CURRENT_DATE`;
+      } else if (tab === 'Overdue') {
+        dataConditions += ` AND a.appointment_date < CURRENT_DATE AND a.status NOT IN ('COMPLETED', 'CANCELLED')`;
+      }
+
       let query = `
         SELECT a.*, l.first_name, l.last_name, l.phone, l.data as lead_data, COUNT(a.id) OVER() AS total_count
         FROM ${TableConstants.APPOINTMENTS} a
         JOIN ${TableConstants.LEADS} l ON a.lead_id = l.id
-      `;
-
-      query += `
-        WHERE ${baseConditions}
+        WHERE ${dataConditions}
         ORDER BY a.appointment_date ASC, a.appointment_time ASC
         LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
       `;
@@ -133,7 +155,7 @@ export class AppointmentsService {
         result.rows.length > 0 ? parseInt(result.rows[0].total_count, 10) : 0;
       const data = result.rows.map(({ total_count, ...row }) => row);
 
-      return { data, total };
+      return { counts, data, total };
     } catch (error: any) {
       if (error.status) throw error;
       this.errorService.errorThrower(500, {
