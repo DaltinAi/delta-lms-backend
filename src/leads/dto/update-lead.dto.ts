@@ -26,4 +26,9 @@ export class UpdateLeadDto {
   @IsObject()
   @IsOptional()
   data?: Record<string, any>;
+
+  @ApiPropertyOptional({ description: 'Call remark or note' })
+  @IsString()
+  @IsOptional()
+  remark?: string;
 }
