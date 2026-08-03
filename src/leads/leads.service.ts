@@ -113,51 +113,74 @@ export class LeadsService {
     id: string,
     companyId: string,
     updateData: import('./dto/update-lead.dto').UpdateLeadDto,
+    userId: string,
   ) {
-    const fields: string[] = [];
-    const values: any[] = [];
-    let idx = 1;
+    return this.dbService.transaction(async (client) => {
+      const fields: string[] = [];
+      const values: any[] = [];
+      let idx = 1;
 
-    if (updateData.firstName !== undefined) {
-      fields.push(`first_name = $${idx++}`);
-      values.push(updateData.firstName);
-    }
-    if (updateData.lastName !== undefined) {
-      fields.push(`last_name = $${idx++}`);
-      values.push(updateData.lastName);
-    }
-    if (updateData.phone !== undefined) {
-      fields.push(`phone = $${idx++}`);
-      values.push(updateData.phone);
-    }
-    if (updateData.email !== undefined) {
-      fields.push(`email = $${idx++}`);
-      values.push(updateData.email);
-    }
-    if (updateData.data !== undefined) {
-      fields.push(`data = $${idx++}`);
-      values.push(updateData.data);
-    }
+      if (updateData.firstName !== undefined) {
+        fields.push(`first_name = $${idx++}`);
+        values.push(updateData.firstName);
+      }
+      if (updateData.lastName !== undefined) {
+        fields.push(`last_name = $${idx++}`);
+        values.push(updateData.lastName);
+      }
+      if (updateData.phone !== undefined) {
+        fields.push(`phone = $${idx++}`);
+        values.push(updateData.phone);
+      }
+      if (updateData.email !== undefined) {
+        fields.push(`email = $${idx++}`);
+        values.push(updateData.email);
+      }
+      if (updateData.data !== undefined) {
+        fields.push(`data = $${idx++}`);
+        values.push(updateData.data);
+      }
 
-    if (fields.length === 0) {
-      return this.getLeadById(id);
-    }
+      let updatedLead = null;
 
-    fields.push(`updated_at = NOW()`);
-    values.push(id, companyId);
+      if (fields.length > 0) {
+        fields.push(`updated_at = NOW()`);
+        values.push(id, companyId);
 
-    const query = `
-      UPDATE ${TableConstants.LEADS}
-      SET ${fields.join(', ')}
-      WHERE id = $${idx} AND company_id = $${idx + 1} AND is_deleted = false
-      RETURNING *
-    `;
+        const query = `
+          UPDATE ${TableConstants.LEADS}
+          SET ${fields.join(', ')}
+          WHERE id = $${idx} AND company_id = $${idx + 1} AND is_deleted = false
+          RETURNING *
+        `;
 
-    const result = await this.dbService.query(query, values);
-    if (result.rows.length === 0) {
-      return null;
-    }
-    return result.rows[0];
+        const result = await client.query(query, values);
+        if (result.rows.length === 0) {
+          return null;
+        }
+        updatedLead = result.rows[0];
+      } else {
+        const getResult = await client.query(
+          `SELECT * FROM ${TableConstants.LEADS} WHERE id = $1 AND company_id = $2 AND is_deleted = false`,
+          [id, companyId],
+        );
+        if (getResult.rows.length === 0) {
+          return null;
+        }
+        updatedLead = getResult.rows[0];
+      }
+
+      if (updateData.remark) {
+        await client.query(
+          `INSERT INTO ${TableConstants.LEAD_STAGE_HISTORY}
+           (lead_id, company_id, changed_by, remark)
+           VALUES ($1, $2, $3, $4)`,
+          [id, companyId, userId, updateData.remark],
+        );
+      }
+
+      return updatedLead;
+    });
   }
 
   async updateLeadStage(
