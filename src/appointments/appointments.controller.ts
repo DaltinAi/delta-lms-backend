@@ -59,6 +59,8 @@ export class AppointmentsController {
     @Req() req: any,
     @Query('limit') limit?: number,
     @Query('offset') offset?: number,
+    @Query('tab') tab?: string,
+    @Query('branch') branch?: string,
   ) {
     try {
       const user = req.user;
@@ -66,6 +68,8 @@ export class AppointmentsController {
         user.company_id,
         limit ? +limit : 10,
         offset ? +offset : 0,
+        tab,
+        branch,
       );
       return { status: 200, ...appointmentsData };
     } catch (error: any) {

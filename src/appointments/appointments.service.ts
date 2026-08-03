@@ -77,20 +77,53 @@ export class AppointmentsService {
     }
   }
 
-  async findAll(companyId: string, limit: number = 10, offset: number = 0) {
+  async findAll(
+    companyId: string,
+    limit: number = 10,
+    offset: number = 0,
+    tab?: string,
+    branch?: string,
+  ) {
     try {
-      const query = `
+      let baseConditions = `a.company_id = $1 AND a.is_deleted = false`;
+      const queryParams: any[] = [companyId];
+      let paramIndex = 2;
+
+      // Tab Filtering
+      if (tab === 'Today') {
+        baseConditions += ` AND a.appointment_date = CURRENT_DATE`;
+      } else if (tab === 'ComingUp') {
+        baseConditions += ` AND a.appointment_date > CURRENT_DATE`;
+      } else if (tab === 'Overdue') {
+        baseConditions += ` AND a.appointment_date < CURRENT_DATE AND a.status NOT IN ('COMPLETED', 'CANCELLED')`;
+      }
+
+      // Branch Filtering
+      let joinLeads = false;
+      if (branch) {
+        joinLeads = true;
+        baseConditions += ` AND LOWER(TRIM(l.data->>'branch')) = $${paramIndex}`;
+        queryParams.push(branch.toLowerCase().trim());
+        paramIndex++;
+      }
+
+      let query = `
         SELECT a.*, COUNT(a.id) OVER() AS total_count
         FROM ${TableConstants.APPOINTMENTS} a
-        WHERE a.company_id = $1 AND a.is_deleted = false
-        ORDER BY a.appointment_date ASC, a.appointment_time ASC
-        LIMIT $2 OFFSET $3
       `;
-      const result = await this.dbService.query(query, [
-        companyId,
-        limit,
-        offset,
-      ]);
+
+      if (joinLeads) {
+        query += ` JOIN ${TableConstants.LEADS} l ON a.lead_id = l.id`;
+      }
+
+      query += `
+        WHERE ${baseConditions}
+        ORDER BY a.appointment_date ASC, a.appointment_time ASC
+        LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
+      `;
+      queryParams.push(limit, offset);
+
+      const result = await this.dbService.query(query, queryParams);
 
       const total =
         result.rows.length > 0 ? parseInt(result.rows[0].total_count, 10) : 0;
