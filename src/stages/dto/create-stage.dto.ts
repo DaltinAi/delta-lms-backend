@@ -1,4 +1,10 @@
-import { IsString, IsNotEmpty, IsNumber, IsBoolean, IsOptional } from 'class-validator';
+import {
+  IsString,
+  IsNotEmpty,
+  IsNumber,
+  IsBoolean,
+  IsOptional,
+} from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateStageDto {
@@ -22,7 +28,9 @@ export class CreateStageDto {
   @IsOptional()
   is_active?: boolean;
 
-  @ApiPropertyOptional({ description: 'Type of the stage (e.g., positive, negative, neutral)' })
+  @ApiPropertyOptional({
+    description: 'Type of the stage (e.g., positive, negative, neutral)',
+  })
   @IsString()
   @IsOptional()
   stage_type?: string;

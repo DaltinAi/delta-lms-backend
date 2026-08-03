@@ -75,12 +75,21 @@ describe('UsersService', () => {
   describe('getProfile()', () => {
     it('should return formatted profile with company info', async () => {
       mockDbQuery.mockResolvedValueOnce({
-        rows: [{
-          id: 'uid', firebase_uid: null, email: 'u@x.com',
-          role: 'admin', first_name: 'John', last_name: 'Doe',
-          user_created_at: new Date(),
-          company_id: 'cid', company_name: 'Acme', company_subdomain: 'acme', company_created_at: new Date(),
-        }],
+        rows: [
+          {
+            id: 'uid',
+            firebase_uid: null,
+            email: 'u@x.com',
+            role: 'admin',
+            first_name: 'John',
+            last_name: 'Doe',
+            user_created_at: new Date(),
+            company_id: 'cid',
+            company_name: 'Acme',
+            company_subdomain: 'acme',
+            company_created_at: new Date(),
+          },
+        ],
       });
 
       const result = await service.getProfile('uid');

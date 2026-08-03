@@ -8,7 +8,7 @@ import { ErrorService } from '../common/error/error.service';
 export class RolePermissionsService {
   constructor(
     private readonly dbService: DbService,
-    private readonly errorService: ErrorService
+    private readonly errorService: ErrorService,
   ) {}
 
   async updatePermissions(companyId: string, dtos: UpdateRolePermissionDto[]) {
@@ -30,8 +30,8 @@ export class RolePermissionsService {
             dto.role,
             dto.stage_id,
             dto.can_view ?? true,
-            dto.can_move_to ?? false
-          ]
+            dto.can_move_to ?? false,
+          ],
         );
         results.push(result.rows[0]);
       }
@@ -42,7 +42,7 @@ export class RolePermissionsService {
   async getPermissions(companyId: string) {
     const result = await this.dbService.query(
       `SELECT * FROM ${TableConstants.ROLE_STAGE_PERMISSIONS} WHERE company_id = $1`,
-      [companyId]
+      [companyId],
     );
     return result.rows;
   }

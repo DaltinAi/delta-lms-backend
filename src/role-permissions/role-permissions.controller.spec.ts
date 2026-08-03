@@ -25,47 +25,76 @@ describe('RolePermissionsController', () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [RolePermissionsController],
       providers: [
-        { provide: RolePermissionsService, useValue: mockRolePermissionsService },
+        {
+          provide: RolePermissionsService,
+          useValue: mockRolePermissionsService,
+        },
         { provide: ErrorService, useValue: mockErrorService },
       ],
     }).compile();
 
-    controller = module.get<RolePermissionsController>(RolePermissionsController);
+    controller = module.get<RolePermissionsController>(
+      RolePermissionsController,
+    );
   });
 
   afterEach(() => jest.clearAllMocks());
 
   describe('updatePermissions()', () => {
-    const dtos = [{ role: 'telecaller', stage_id: 's-1', can_view: true, can_move_to: false }];
+    const dtos = [
+      {
+        role: 'telecaller',
+        stage_id: 's-1',
+        can_view: true,
+        can_move_to: false,
+      },
+    ];
 
     it('should update permissions and return results', async () => {
       const results = [{ id: 'p-1', role: 'telecaller' }];
-      mockRolePermissionsService.updatePermissions.mockResolvedValueOnce(results);
+      mockRolePermissionsService.updatePermissions.mockResolvedValueOnce(
+        results,
+      );
 
-      const result = await controller.updatePermissions(dtos as any, mockUser);
+      const result = await controller.updatePermissions(dtos, mockUser);
       expect(result).toEqual(results);
-      expect(mockRolePermissionsService.updatePermissions).toHaveBeenCalledWith('cid-1', dtos);
+      expect(mockRolePermissionsService.updatePermissions).toHaveBeenCalledWith(
+        'cid-1',
+        dtos,
+      );
     });
 
     it('should propagate errors from service', async () => {
-      mockRolePermissionsService.updatePermissions.mockRejectedValueOnce({ status: 500, message: 'DB error' });
-      await expect(controller.updatePermissions(dtos as any, mockUser)).rejects.toMatchObject({ status: 500 });
+      mockRolePermissionsService.updatePermissions.mockRejectedValueOnce({
+        status: 500,
+        message: 'DB error',
+      });
+      await expect(
+        controller.updatePermissions(dtos as any, mockUser),
+      ).rejects.toMatchObject({ status: 500 });
     });
 
     it('should throw 403 when non-admin tries to update permissions', async () => {
       const nonAdmin = { ...mockUser, role: 'telecaller' };
-      await expect(controller.updatePermissions(dtos as any, nonAdmin)).rejects.toMatchObject({ status: 403 });
+      await expect(
+        controller.updatePermissions(dtos as any, nonAdmin),
+      ).rejects.toMatchObject({ status: 403 });
     });
   });
 
   describe('getPermissions()', () => {
     it('should return all permissions for company', async () => {
-      const rows = [{ id: 'p-1', role: 'telecaller' }, { id: 'p-2', role: 'admin' }];
+      const rows = [
+        { id: 'p-1', role: 'telecaller' },
+        { id: 'p-2', role: 'admin' },
+      ];
       mockRolePermissionsService.getPermissions.mockResolvedValueOnce(rows);
 
       const result = await controller.getPermissions(mockUser);
       expect(result).toEqual(rows);
-      expect(mockRolePermissionsService.getPermissions).toHaveBeenCalledWith('cid-1');
+      expect(mockRolePermissionsService.getPermissions).toHaveBeenCalledWith(
+        'cid-1',
+      );
     });
 
     it('should return empty array when no permissions exist', async () => {

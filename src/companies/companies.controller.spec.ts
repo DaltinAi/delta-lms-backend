@@ -47,29 +47,44 @@ describe('CompaniesController', () => {
 
     it('should create a company and return result', async () => {
       const serviceResult = {
-        message: 'Company and admin user created successfully with default stages.',
+        message:
+          'Company and admin user created successfully with default stages.',
         company: { id: 'cid-1', name: 'Acme Corp', subdomain: 'acme' },
       };
       mockCompaniesService.createCompany.mockResolvedValueOnce(serviceResult);
 
-      const result = await controller.createCompany(dto as any);
+      const result = await controller.createCompany(dto);
       expect(result).toEqual(serviceResult);
       expect(mockCompaniesService.createCompany).toHaveBeenCalledWith(dto);
     });
 
     it('should propagate 409 when subdomain is taken', async () => {
-      mockCompaniesService.createCompany.mockRejectedValueOnce({ status: 409, message: 'Subdomain already in use' });
-      await expect(controller.createCompany(dto as any)).rejects.toMatchObject({ status: 409 });
+      mockCompaniesService.createCompany.mockRejectedValueOnce({
+        status: 409,
+        message: 'Subdomain already in use',
+      });
+      await expect(controller.createCompany(dto as any)).rejects.toMatchObject({
+        status: 409,
+      });
     });
 
     it('should propagate 409 when admin email is taken', async () => {
-      mockCompaniesService.createCompany.mockRejectedValueOnce({ status: 409, message: 'Admin email already in use' });
-      await expect(controller.createCompany(dto as any)).rejects.toMatchObject({ status: 409 });
+      mockCompaniesService.createCompany.mockRejectedValueOnce({
+        status: 409,
+        message: 'Admin email already in use',
+      });
+      await expect(controller.createCompany(dto as any)).rejects.toMatchObject({
+        status: 409,
+      });
     });
 
     it('should propagate 500 on unexpected error', async () => {
-      mockCompaniesService.createCompany.mockRejectedValueOnce({ message: 'Unexpected error' });
-      await expect(controller.createCompany(dto as any)).rejects.toMatchObject({ status: 500 });
+      mockCompaniesService.createCompany.mockRejectedValueOnce({
+        message: 'Unexpected error',
+      });
+      await expect(controller.createCompany(dto as any)).rejects.toMatchObject({
+        status: 500,
+      });
     });
   });
 });

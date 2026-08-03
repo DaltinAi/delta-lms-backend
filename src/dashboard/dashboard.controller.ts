@@ -9,14 +9,14 @@ import { ErrorService } from '../common/error/error.service';
 export class DashboardController {
   constructor(
     private readonly dashboardService: DashboardService,
-    private readonly errorService: ErrorService
+    private readonly errorService: ErrorService,
   ) {}
 
   @Get('stats')
   async getStats(
     @Query('startDate') startDate: string,
     @Query('endDate') endDate: string,
-    @CurrentUser() user: any
+    @CurrentUser() user: any,
   ) {
     try {
       const stats = await this.dashboardService.getStats(
@@ -24,11 +24,14 @@ export class DashboardController {
         user.userId,
         user.role,
         startDate,
-        endDate
+        endDate,
       );
       return stats;
     } catch (error: any) {
-      this.errorService.errorThrower(error.status || 500, { message: error.message, details: error });
+      this.errorService.errorThrower(error.status || 500, {
+        message: error.message,
+        details: error,
+      });
     }
   }
 }

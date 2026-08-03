@@ -10,24 +10,29 @@ import { ErrorService } from '../common/error/error.service';
 export class RolePermissionsController {
   constructor(
     private readonly rolePermissionsService: RolePermissionsService,
-    private readonly errorService: ErrorService
+    private readonly errorService: ErrorService,
   ) {}
 
   @Post()
   async updatePermissions(
     @Body() dtos: UpdateRolePermissionDto[],
-    @CurrentUser() user: any
+    @CurrentUser() user: any,
   ) {
     try {
       if (user.role !== 'admin') {
-        this.errorService.errorThrower(403, { message: 'Admin access required' });
+        this.errorService.errorThrower(403, {
+          message: 'Admin access required',
+        });
       }
       return await this.rolePermissionsService.updatePermissions(
         user.company_id || '00000000-0000-0000-0000-000000000000',
-        dtos
+        dtos,
       );
     } catch (error: any) {
-      this.errorService.errorThrower(error.status || 500, { message: error.message, details: error });
+      this.errorService.errorThrower(error.status || 500, {
+        message: error.message,
+        details: error,
+      });
     }
   }
 
@@ -35,10 +40,13 @@ export class RolePermissionsController {
   async getPermissions(@CurrentUser() user: any) {
     try {
       return await this.rolePermissionsService.getPermissions(
-        user.company_id || '00000000-0000-0000-0000-000000000000'
+        user.company_id || '00000000-0000-0000-0000-000000000000',
       );
     } catch (error: any) {
-      this.errorService.errorThrower(error.status || 500, { message: error.message, details: error });
+      this.errorService.errorThrower(error.status || 500, {
+        message: error.message,
+        details: error,
+      });
     }
   }
 }

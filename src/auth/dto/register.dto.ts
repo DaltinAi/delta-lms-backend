@@ -1,4 +1,10 @@
-import { IsEmail, IsNotEmpty, IsString, IsIn, MinLength } from 'class-validator';
+import {
+  IsEmail,
+  IsNotEmpty,
+  IsString,
+  IsIn,
+  MinLength,
+} from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class RegisterDto {
@@ -21,10 +27,14 @@ export class RegisterDto {
   @IsString()
   lastName: string;
 
-  @ApiProperty({ description: 'User role', enum: ['Telecaller', 'Receptionist', 'Counsellor', 'Admissions', 'Admin'] })
+  @ApiProperty({
+    description: 'User role',
+    enum: ['Telecaller', 'Receptionist', 'Counsellor', 'Admissions', 'Admin'],
+  })
   @IsNotEmpty({ message: 'Role is required' })
   @IsIn(['Telecaller', 'Receptionist', 'Counsellor', 'Admissions', 'Admin'], {
-    message: 'Role must be one of: Telecaller, Receptionist, Counsellor, Admissions, Admin',
+    message:
+      'Role must be one of: Telecaller, Receptionist, Counsellor, Admissions, Admin',
   })
   role: string;
 }

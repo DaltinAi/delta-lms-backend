@@ -7,6 +7,6 @@ import { DbModule } from '../db/db.module';
   imports: [DbModule],
   controllers: [StagesController],
   providers: [StagesService],
-  exports: [StagesService]
+  exports: [StagesService],
 })
 export class StagesModule {}

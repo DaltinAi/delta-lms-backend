@@ -1,4 +1,10 @@
-import { IsEmail, IsNotEmpty, IsOptional, IsString, MinLength } from 'class-validator';
+import {
+  IsEmail,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  MinLength,
+} from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateCompanyDto {
@@ -17,7 +23,10 @@ export class CreateCompanyDto {
   @IsNotEmpty()
   adminEmail: string;
 
-  @ApiPropertyOptional({ description: 'Password of the company admin', minLength: 6 })
+  @ApiPropertyOptional({
+    description: 'Password of the company admin',
+    minLength: 6,
+  })
   @IsString()
   @IsOptional()
   @MinLength(6)

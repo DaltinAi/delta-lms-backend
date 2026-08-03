@@ -18,7 +18,9 @@ export class CreateFollowUpDto {
   @IsNotEmpty()
   scheduledFor: string;
 
-  @ApiProperty({ description: 'Mode of the follow-up (e.g., call, email, meeting)' })
+  @ApiProperty({
+    description: 'Mode of the follow-up (e.g., call, email, meeting)',
+  })
   @IsString()
   @IsNotEmpty()
   mode: string;

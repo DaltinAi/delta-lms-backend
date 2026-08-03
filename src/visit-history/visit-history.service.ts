@@ -8,18 +8,14 @@ import { ErrorService } from '../common/error/error.service';
 export class VisitHistoryService {
   constructor(
     private readonly dbService: DbService,
-    private readonly errorService: ErrorService
+    private readonly errorService: ErrorService,
   ) {}
 
-  async createVisit(
-    companyId: string,
-    userId: string,
-    dto: CreateVisitDto
-  ) {
+  async createVisit(companyId: string, userId: string, dto: CreateVisitDto) {
     // 1. Verify lead belongs to company
     const leadResult = await this.dbService.query(
       `SELECT id FROM ${TableConstants.LEADS} WHERE id = $1 AND company_id = $2 AND is_deleted = false`,
-      [dto.leadId, companyId]
+      [dto.leadId, companyId],
     );
 
     if (leadResult.rows.length === 0) {
@@ -32,7 +28,7 @@ export class VisitHistoryService {
        (lead_id, company_id, visit_date, notes, created_by)
        VALUES ($1, $2, $3, $4, $5)
        RETURNING *`,
-      [dto.leadId, companyId, dto.visitDate, dto.notes || null, userId]
+      [dto.leadId, companyId, dto.visitDate, dto.notes || null, userId],
     );
 
     return result.rows[0];
@@ -40,8 +36,8 @@ export class VisitHistoryService {
 
   async getVisits(companyId: string, filterStr?: string) {
     let leadId = null;
-    let limit = 50;
-    
+    const limit = 50;
+
     if (filterStr) {
       const parts = filterStr.split(',');
       for (const p of parts) {
@@ -52,7 +48,7 @@ export class VisitHistoryService {
 
     let query = `SELECT * FROM ${TableConstants.VISIT_HISTORY} WHERE company_id = $1`;
     const params: any[] = [companyId];
-    
+
     if (leadId) {
       params.push(leadId);
       query += ` AND lead_id = $2`;

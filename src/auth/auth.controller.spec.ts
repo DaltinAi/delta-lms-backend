@@ -39,18 +39,29 @@ describe('AuthController', () => {
 
   describe('register()', () => {
     it('should delegate to authService.register and return result', async () => {
-      const dto = { email: 'a@b.com', password: 'Pass@1', firstName: 'A', lastName: 'B', role: 'admin' };
+      const dto = {
+        email: 'a@b.com',
+        password: 'Pass@1',
+        firstName: 'A',
+        lastName: 'B',
+        role: 'admin',
+      };
       const serviceResult = { id: 'uid', email: 'a@b.com' };
       mockAuthService.register.mockResolvedValueOnce(serviceResult);
 
-      const result = await controller.register(dto as any);
+      const result = await controller.register(dto);
       expect(mockAuthService.register).toHaveBeenCalledWith(dto);
       expect(result).toEqual(serviceResult);
     });
 
     it('should call errorThrower when service throws', async () => {
-      mockAuthService.register.mockRejectedValueOnce({ status: 409, message: 'Email exists' });
-      await expect(controller.register({} as any)).rejects.toMatchObject({ status: 409 });
+      mockAuthService.register.mockRejectedValueOnce({
+        status: 409,
+        message: 'Email exists',
+      });
+      await expect(controller.register({} as any)).rejects.toMatchObject({
+        status: 409,
+      });
     });
   });
 
@@ -60,13 +71,18 @@ describe('AuthController', () => {
       const tokens = { accessToken: 'acc', refreshToken: 'ref', user: {} };
       mockAuthService.login.mockResolvedValueOnce(tokens);
 
-      const result = await controller.login(dto as any);
+      const result = await controller.login(dto);
       expect(result).toEqual(tokens);
     });
 
     it('should propagate 401 on invalid credentials', async () => {
-      mockAuthService.login.mockRejectedValueOnce({ status: 401, message: 'Invalid credentials' });
-      await expect(controller.login({} as any)).rejects.toMatchObject({ status: 401 });
+      mockAuthService.login.mockRejectedValueOnce({
+        status: 401,
+        message: 'Invalid credentials',
+      });
+      await expect(controller.login({} as any)).rejects.toMatchObject({
+        status: 401,
+      });
     });
   });
 
@@ -81,7 +97,9 @@ describe('AuthController', () => {
 
   describe('logout()', () => {
     it('should call authService.logout and return message', async () => {
-      mockAuthService.logout.mockResolvedValueOnce({ message: 'Logged out successfully' });
+      mockAuthService.logout.mockResolvedValueOnce({
+        message: 'Logged out successfully',
+      });
       const result = await controller.logout('refresh-token');
       expect(result.message).toContain('Logged out');
     });
@@ -100,7 +118,10 @@ describe('AuthController', () => {
     it('should call authService.resetPassword', async () => {
       const msg = { message: 'Password has been reset successfully' };
       mockAuthService.resetPassword.mockResolvedValueOnce(msg);
-      const result = await controller.resetPassword({ token: 'tok', password: 'New@123' });
+      const result = await controller.resetPassword({
+        token: 'tok',
+        password: 'New@123',
+      });
       expect(result).toEqual(msg);
     });
   });

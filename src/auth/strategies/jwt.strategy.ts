@@ -9,16 +9,17 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-      secretOrKey: process.env.JWT_SECRET || 'delta-crm-access-token-secret-key-12345',
+      secretOrKey:
+        process.env.JWT_SECRET || 'delta-crm-access-token-secret-key-12345',
     });
   }
 
   async validate(payload: JwtPayload & { company_id?: string }) {
-    return { 
-      userId: payload.sub, 
-      email: payload.email, 
+    return {
+      userId: payload.sub,
+      email: payload.email,
       role: payload.role,
-      company_id: payload.company_id 
+      company_id: payload.company_id,
     };
   }
 }

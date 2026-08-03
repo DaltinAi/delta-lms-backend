@@ -33,8 +33,15 @@ describe('DashboardService', () => {
 
   describe('getStats()', () => {
     const totalCountRow = { rows: [{ count: '42' }] };
-    const countryRow = { rows: [{ country: 'India', count: '30' }, { country: 'UAE', count: '12' }] };
-    const branchRow = { rows: [{ branch_key: 'delhi', branch: 'Delhi', count: '20' }] };
+    const countryRow = {
+      rows: [
+        { country: 'India', count: '30' },
+        { country: 'UAE', count: '12' },
+      ],
+    };
+    const branchRow = {
+      rows: [{ branch_key: 'delhi', branch: 'Delhi', count: '20' }],
+    };
 
     it('should return stats for admin (no user filter applied)', async () => {
       mockDbQuery
@@ -77,7 +84,8 @@ describe('DashboardService', () => {
 
     it('should cap countryBreakdown to top 4 + "Other"', async () => {
       const manyCountries = Array.from({ length: 7 }, (_, i) => ({
-        country: `Country${i}`, count: `${10 - i}`,
+        country: `Country${i}`,
+        count: `${10 - i}`,
       }));
 
       mockDbQuery

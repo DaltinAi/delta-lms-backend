@@ -34,21 +34,28 @@ describe('FollowUpsService', () => {
   // ─── createFollowUp ───────────────────────────────────────────────────────
 
   describe('createFollowUp()', () => {
-    const dto = { leadId: 'lead-1', scheduledFor: '2026-07-20T10:00:00Z', mode: 'call', note: 'Call back' };
+    const dto = {
+      leadId: 'lead-1',
+      scheduledFor: '2026-07-20T10:00:00Z',
+      mode: 'call',
+      note: 'Call back',
+    };
 
     it('should create a follow-up and return it', async () => {
       const followUp = { id: 'fu-1', lead_id: 'lead-1', mode: 'call' };
       mockDbQuery
         .mockResolvedValueOnce({ rows: [{ id: 'lead-1' }] }) // lead check
-        .mockResolvedValueOnce({ rows: [followUp] });         // insert
+        .mockResolvedValueOnce({ rows: [followUp] }); // insert
 
-      const result = await service.createFollowUp('cid', 'uid', dto as any);
+      const result = await service.createFollowUp('cid', 'uid', dto);
       expect(result).toEqual(followUp);
     });
 
     it('should throw 404 when lead does not belong to company', async () => {
       mockDbQuery.mockResolvedValueOnce({ rows: [] });
-      await expect(service.createFollowUp('cid', 'uid', dto as any)).rejects.toMatchObject({ status: 404 });
+      await expect(
+        service.createFollowUp('cid', 'uid', dto as any),
+      ).rejects.toMatchObject({ status: 404 });
     });
   });
 
@@ -78,7 +85,10 @@ describe('FollowUpsService', () => {
     it('should filter by startDate and endDate when provided', async () => {
       mockDbQuery.mockResolvedValueOnce({ rows: [] });
 
-      await service.getFollowUps('cid', 'startDate=2026-06-01,endDate=2026-07-01');
+      await service.getFollowUps(
+        'cid',
+        'startDate=2026-06-01,endDate=2026-07-01',
+      );
 
       const call = mockDbQuery.mock.calls[0];
       expect(call[0]).toContain('scheduled_for >=');
@@ -98,7 +108,10 @@ describe('FollowUpsService', () => {
     it('should apply all filters together', async () => {
       mockDbQuery.mockResolvedValueOnce({ rows: [] });
 
-      await service.getFollowUps('cid', 'startDate=2026-06-17,endDate=2026-07-17,userId=user-abc');
+      await service.getFollowUps(
+        'cid',
+        'startDate=2026-06-17,endDate=2026-07-17,userId=user-abc',
+      );
       const call = mockDbQuery.mock.calls[0];
       expect(call[0]).toContain('created_by');
       expect(call[0]).toContain('scheduled_for >=');
@@ -119,7 +132,9 @@ describe('FollowUpsService', () => {
 
     it('should throw 404 when follow-up not found', async () => {
       mockDbQuery.mockResolvedValueOnce({ rows: [] });
-      await expect(service.completeFollowUp('fu-missing', 'cid')).rejects.toMatchObject({ status: 404 });
+      await expect(
+        service.completeFollowUp('fu-missing', 'cid'),
+      ).rejects.toMatchObject({ status: 404 });
     });
   });
 });

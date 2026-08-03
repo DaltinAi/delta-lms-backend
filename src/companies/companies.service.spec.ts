@@ -53,40 +53,48 @@ describe('CompaniesService', () => {
       const companyRow = { id: 'cid-1', name: 'Acme Corp', subdomain: 'acme' };
 
       const mockClient = {
-        query: jest.fn()
-          .mockResolvedValueOnce({ rows: [] })           // subdomain check
-          .mockResolvedValueOnce({ rows: [] })           // email check
+        query: jest
+          .fn()
+          .mockResolvedValueOnce({ rows: [] }) // subdomain check
+          .mockResolvedValueOnce({ rows: [] }) // email check
           .mockResolvedValueOnce({ rows: [companyRow] }) // insert company
-          .mockResolvedValueOnce({ rows: [] })           // insert admin
+          .mockResolvedValueOnce({ rows: [] }) // insert admin
           // 15 stage inserts
           .mockResolvedValue({ rows: [] }),
       };
 
       mockDbTransaction.mockImplementationOnce((cb: any) => cb(mockClient));
 
-      const result = await service.createCompany(dto as any);
+      const result = await service.createCompany(dto);
       expect(result.company.id).toBe('cid-1');
       expect(result.message).toContain('successfully');
     });
 
     it('should throw 409 when subdomain already exists', async () => {
       const mockClient = {
-        query: jest.fn().mockResolvedValueOnce({ rows: [{ id: 'existing-cid' }] }),
+        query: jest
+          .fn()
+          .mockResolvedValueOnce({ rows: [{ id: 'existing-cid' }] }),
       };
       mockDbTransaction.mockImplementationOnce((cb: any) => cb(mockClient));
 
-      await expect(service.createCompany(dto as any)).rejects.toMatchObject({ status: 409 });
+      await expect(service.createCompany(dto as any)).rejects.toMatchObject({
+        status: 409,
+      });
     });
 
     it('should throw 409 when admin email already exists', async () => {
       const mockClient = {
-        query: jest.fn()
-          .mockResolvedValueOnce({ rows: [] })             // subdomain ok
+        query: jest
+          .fn()
+          .mockResolvedValueOnce({ rows: [] }) // subdomain ok
           .mockResolvedValueOnce({ rows: [{ id: 'u1' }] }), // email taken
       };
       mockDbTransaction.mockImplementationOnce((cb: any) => cb(mockClient));
 
-      await expect(service.createCompany(dto as any)).rejects.toMatchObject({ status: 409 });
+      await expect(service.createCompany(dto as any)).rejects.toMatchObject({
+        status: 409,
+      });
     });
   });
 });

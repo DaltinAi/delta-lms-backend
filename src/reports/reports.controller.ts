@@ -9,7 +9,7 @@ import { ErrorService } from '../common/error/error.service';
 export class ReportsController {
   constructor(
     private readonly analyticsStrategy: TelecallerAnalyticsStrategy,
-    private readonly errorService: ErrorService
+    private readonly errorService: ErrorService,
   ) {}
 
   @Get('telecaller-analytics')
@@ -21,7 +21,8 @@ export class ReportsController {
   ) {
     try {
       const requesterId = user.userId;
-      const companyId = user.company_id || '00000000-0000-0000-0000-000000000000';
+      const companyId =
+        user.company_id || '00000000-0000-0000-0000-000000000000';
       const analytics = await this.analyticsStrategy.getAnalytics({
         startDate,
         endDate,
@@ -31,7 +32,10 @@ export class ReportsController {
       });
       return analytics;
     } catch (error: any) {
-      this.errorService.errorThrower(error.status || 500, { message: error.message, details: error });
+      this.errorService.errorThrower(error.status || 500, {
+        message: error.message,
+        details: error,
+      });
     }
   }
 }

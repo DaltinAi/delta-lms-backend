@@ -36,20 +36,34 @@ describe('StagesController', () => {
   afterEach(() => jest.clearAllMocks());
 
   describe('createStage()', () => {
-    const dto = { key: 'warm_lead', name: 'Warm Lead', sort_order: 500, stage_type: 'positive' };
+    const dto = {
+      key: 'warm_lead',
+      name: 'Warm Lead',
+      sort_order: 500,
+      stage_type: 'positive',
+    };
 
     it('should create stage and return it', async () => {
       const stage = { id: 's-1', ...dto };
       mockStagesService.createStage.mockResolvedValueOnce(stage);
 
-      const result = await controller.createStage(dto as any, mockUser);
-      expect(result).toEqual({ status: 201, message: 'Stage created successfully', data: stage });
+      const result = await controller.createStage(dto, mockUser);
+      expect(result).toEqual({
+        status: 201,
+        message: 'Stage created successfully',
+        data: stage,
+      });
       expect(mockStagesService.createStage).toHaveBeenCalledWith('cid-1', dto);
     });
 
     it('should propagate 409 for duplicate stage key', async () => {
-      mockStagesService.createStage.mockRejectedValueOnce({ status: 409, message: 'Stage key already exists' });
-      await expect(controller.createStage(dto as any, mockUser)).rejects.toMatchObject({ status: 409 });
+      mockStagesService.createStage.mockRejectedValueOnce({
+        status: 409,
+        message: 'Stage key already exists',
+      });
+      await expect(
+        controller.createStage(dto as any, mockUser),
+      ).rejects.toMatchObject({ status: 409 });
     });
   });
 

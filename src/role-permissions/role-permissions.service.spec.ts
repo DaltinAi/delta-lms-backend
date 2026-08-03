@@ -38,15 +38,28 @@ describe('RolePermissionsService', () => {
 
   describe('updatePermissions()', () => {
     it('should upsert a single permission and return results', async () => {
-      const perm = { id: 'p-1', role: 'telecaller', stage_id: 's-1', can_view: true, can_move_to: false };
+      const perm = {
+        id: 'p-1',
+        role: 'telecaller',
+        stage_id: 's-1',
+        can_view: true,
+        can_move_to: false,
+      };
 
       const mockClient = {
         query: jest.fn().mockResolvedValueOnce({ rows: [perm] }),
       };
       mockDbTransaction.mockImplementationOnce((cb: any) => cb(mockClient));
 
-      const dtos = [{ role: 'telecaller', stage_id: 's-1', can_view: true, can_move_to: false }];
-      const result = await service.updatePermissions('cid', dtos as any);
+      const dtos = [
+        {
+          role: 'telecaller',
+          stage_id: 's-1',
+          can_view: true,
+          can_move_to: false,
+        },
+      ];
+      const result = await service.updatePermissions('cid', dtos);
 
       expect(result).toHaveLength(1);
       expect(result[0]).toEqual(perm);
@@ -54,25 +67,34 @@ describe('RolePermissionsService', () => {
 
     it('should upsert multiple permissions in a single transaction', async () => {
       const mockClient = {
-        query: jest.fn()
+        query: jest
+          .fn()
           .mockResolvedValueOnce({ rows: [{ id: 'p-1' }] })
           .mockResolvedValueOnce({ rows: [{ id: 'p-2' }] }),
       };
       mockDbTransaction.mockImplementationOnce((cb: any) => cb(mockClient));
 
       const dtos = [
-        { role: 'telecaller', stage_id: 's-1', can_view: true, can_move_to: false },
+        {
+          role: 'telecaller',
+          stage_id: 's-1',
+          can_view: true,
+          can_move_to: false,
+        },
         { role: 'admin', stage_id: 's-2', can_view: true, can_move_to: true },
       ];
 
-      const result = await service.updatePermissions('cid', dtos as any);
+      const result = await service.updatePermissions('cid', dtos);
       expect(result).toHaveLength(2);
     });
   });
 
   describe('getPermissions()', () => {
     it('should return all permissions for a company', async () => {
-      const rows = [{ id: 'p-1', role: 'telecaller' }, { id: 'p-2', role: 'admin' }];
+      const rows = [
+        { id: 'p-1', role: 'telecaller' },
+        { id: 'p-2', role: 'admin' },
+      ];
       mockDbQuery.mockResolvedValueOnce({ rows });
 
       const result = await service.getPermissions('cid');

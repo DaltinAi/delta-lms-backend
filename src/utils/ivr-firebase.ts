@@ -58,16 +58,8 @@ export async function getTodayCallLeadIds(
 
     const callsRef = db.collection('ivr').doc(companyId).collection('calls');
     const snapshot = await callsRef
-      .where(
-        'initiatedAt',
-        '>=',
-        Timestamp.fromDate(startOfTodayIST),
-      )
-      .where(
-        'initiatedAt',
-        '<',
-        Timestamp.fromDate(endOfTodayIST),
-      )
+      .where('initiatedAt', '>=', Timestamp.fromDate(startOfTodayIST))
+      .where('initiatedAt', '<', Timestamp.fromDate(endOfTodayIST))
       .get();
 
     const leadIds = new Set<string>();
@@ -135,7 +127,8 @@ export async function getCallMetrics(
           answeredForDurationCount++;
         }
         if (initiatedAt && answeredAt) {
-          const pickTime = (answeredAt.getTime() - initiatedAt.getTime()) / 1000;
+          const pickTime =
+            (answeredAt.getTime() - initiatedAt.getTime()) / 1000;
           if (pickTime >= 0) {
             totalTimeToPick += pickTime;
             answeredForPickCount++;

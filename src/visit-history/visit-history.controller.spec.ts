@@ -36,20 +36,37 @@ describe('VisitHistoryController', () => {
   afterEach(() => jest.clearAllMocks());
 
   describe('createVisit()', () => {
-    const dto = { leadId: 'lead-1', visitDate: '2026-07-17', notes: 'Walked in today' };
+    const dto = {
+      leadId: 'lead-1',
+      visitDate: '2026-07-17',
+      notes: 'Walked in today',
+    };
 
     it('should create a visit and return 201 response', async () => {
       const visit = { id: 'v-1', lead_id: 'lead-1' };
       mockVisitHistoryService.createVisit.mockResolvedValueOnce(visit);
 
-      const result = await controller.createVisit(dto as any, mockUser);
-      expect(result).toEqual({ status: 201, message: 'Visit recorded successfully', data: visit });
-      expect(mockVisitHistoryService.createVisit).toHaveBeenCalledWith('cid-1', 'uid-1', dto);
+      const result = await controller.createVisit(dto, mockUser);
+      expect(result).toEqual({
+        status: 201,
+        message: 'Visit recorded successfully',
+        data: visit,
+      });
+      expect(mockVisitHistoryService.createVisit).toHaveBeenCalledWith(
+        'cid-1',
+        'uid-1',
+        dto,
+      );
     });
 
     it('should propagate 404 when lead not found', async () => {
-      mockVisitHistoryService.createVisit.mockRejectedValueOnce({ status: 404, message: 'Lead not found' });
-      await expect(controller.createVisit(dto as any, mockUser)).rejects.toMatchObject({ status: 404 });
+      mockVisitHistoryService.createVisit.mockRejectedValueOnce({
+        status: 404,
+        message: 'Lead not found',
+      });
+      await expect(
+        controller.createVisit(dto as any, mockUser),
+      ).rejects.toMatchObject({ status: 404 });
     });
   });
 
@@ -60,7 +77,10 @@ describe('VisitHistoryController', () => {
 
       const result = await controller.getVisits('leadId=lead-1', mockUser);
       expect(result).toEqual({ status: 200, data: rows });
-      expect(mockVisitHistoryService.getVisits).toHaveBeenCalledWith('cid-1', 'leadId=lead-1');
+      expect(mockVisitHistoryService.getVisits).toHaveBeenCalledWith(
+        'cid-1',
+        'leadId=lead-1',
+      );
     });
 
     it('should work with no filter string', async () => {

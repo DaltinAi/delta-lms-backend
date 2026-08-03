@@ -7,6 +7,6 @@ import { DbModule } from '../db/db.module';
   imports: [DbModule],
   controllers: [VisitHistoryController],
   providers: [VisitHistoryService],
-  exports: [VisitHistoryService]
+  exports: [VisitHistoryService],
 })
 export class VisitHistoryModule {}

@@ -7,7 +7,7 @@ import { ErrorService } from '../common/error/error.service';
 export class DashboardService {
   constructor(
     private readonly dbService: DbService,
-    private readonly errorService: ErrorService
+    private readonly errorService: ErrorService,
   ) {}
 
   async getStats(
@@ -15,7 +15,7 @@ export class DashboardService {
     userId: string,
     role: string,
     startDate?: string,
-    endDate?: string
+    endDate?: string,
   ) {
     const isAdmin = role === 'admin';
     let baseConditions = 'l.company_id = $1 AND l.is_deleted = false';
@@ -46,13 +46,41 @@ export class DashboardService {
 
     // Get total leads
     const totalLeadsQuery = `
-      SELECT COUNT(*) as count
+      SELECT 
+        COUNT(*) as count,
+        SUM(CASE WHEN LOWER(s.key) = 'new' THEN 1 ELSE 0 END)::int as new_leads,
+        SUM(CASE WHEN LOWER(s.key) = 'pending' THEN 1 ELSE 0 END)::int as pending_leads,
+        SUM(CASE WHEN LOWER(s.key) = 'interested' THEN 1 ELSE 0 END)::int as interested_leads,
+        SUM(CASE WHEN LOWER(s.key) = 'cold' THEN 1 ELSE 0 END)::int as cold_leads,
+        SUM(CASE WHEN LOWER(s.key) = 'enrolled' OR LOWER(s.key) = 'appointment_booked' OR s.key ILIKE '%appointment%' THEN 1 ELSE 0 END)::int as converted_leads
       FROM ${TableConstants.LEADS} l
       LEFT JOIN ${TableConstants.STAGES} s ON l.current_stage_id = s.id
       WHERE ${baseConditions}${roleCondition}
     `;
-    const totalResult = await this.dbService.query(totalLeadsQuery, queryParams);
-    const totalLeads = parseInt(totalResult.rows[0].count, 10);
+    const totalResult = await this.dbService.query(
+      totalLeadsQuery,
+      queryParams,
+    );
+    const totalRow = totalResult.rows[0];
+    const totalLeads = parseInt(totalRow.count, 10);
+    const newLeads = parseInt(totalRow.new_leads || '0', 10);
+    const pendingLeads = parseInt(totalRow.pending_leads || '0', 10);
+    const interestedLeads = parseInt(totalRow.interested_leads || '0', 10);
+    const coldLeads = parseInt(totalRow.cold_leads || '0', 10);
+    const convertedLeads = parseInt(totalRow.converted_leads || '0', 10);
+
+    // Get today's follow-ups for telecaller
+    const followUpsQuery = `
+      SELECT COUNT(*)::int as count
+      FROM ${TableConstants.FOLLOW_UPS} fu
+      WHERE fu.company_id = $1 AND fu.created_by = $2 AND fu.status = 'pending'
+        AND fu.follow_up_date = CURRENT_DATE
+    `;
+    const followUpsResult = await this.dbService.query(followUpsQuery, [
+      companyId,
+      userId,
+    ]);
+    const todayFollowUps = parseInt(followUpsResult.rows[0].count, 10);
 
     // Get country breakdown
     const countryQuery = `
@@ -75,13 +103,15 @@ export class DashboardService {
     `;
     const countryResult = await this.dbService.query(countryQuery, queryParams);
 
-    let countryBreakdown = countryResult.rows.map(r => ({
+    let countryBreakdown = countryResult.rows.map((r) => ({
       country: r.country || 'Unknown',
-      count: parseInt(r.count, 10)
+      count: parseInt(r.count, 10),
     }));
 
     if (countryBreakdown.length > 4) {
-      const otherCount = countryBreakdown.slice(4).reduce((sum, item) => sum + item.count, 0);
+      const otherCount = countryBreakdown
+        .slice(4)
+        .reduce((sum, item) => sum + item.count, 0);
       countryBreakdown = countryBreakdown.slice(0, 4);
       if (otherCount > 0) {
         countryBreakdown.push({ country: 'Other', count: otherCount });
@@ -113,19 +143,28 @@ export class DashboardService {
       if (branchMap.has(key)) {
         branchMap.get(key)!.count += count;
       } else {
-        const formattedName = displayName.charAt(0).toUpperCase() + displayName.slice(1).toLowerCase();
+        const formattedName =
+          displayName.charAt(0).toUpperCase() +
+          displayName.slice(1).toLowerCase();
         branchMap.set(key, { name: formattedName, count });
       }
     }
 
     const branchBreakdown = Array.from(branchMap.values())
-      .map(item => ({ branch: item.name, count: item.count }))
+      .map((item) => ({ branch: item.name, count: item.count }))
       .sort((a, b) => b.count - a.count);
 
     return {
       countryBreakdown,
       branchBreakdown,
-      totalLeads
+      totalLeads,
+      newLeads,
+      pendingLeads,
+      interestedLeads,
+      coldLeads,
+      convertedLeads,
+      todayFollowUps,
+      appointmentBooked: convertedLeads,
     };
   }
 }

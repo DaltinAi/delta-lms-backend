@@ -1,4 +1,10 @@
-import { IsString, IsNotEmpty, IsBoolean, IsOptional, IsUUID } from 'class-validator';
+import {
+  IsString,
+  IsNotEmpty,
+  IsBoolean,
+  IsOptional,
+  IsUUID,
+} from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class UpdateRolePermissionDto {
@@ -17,7 +23,9 @@ export class UpdateRolePermissionDto {
   @IsOptional()
   can_view?: boolean;
 
-  @ApiPropertyOptional({ description: 'Whether the role can move leads to this stage' })
+  @ApiPropertyOptional({
+    description: 'Whether the role can move leads to this stage',
+  })
   @IsBoolean()
   @IsOptional()
   can_move_to?: boolean;

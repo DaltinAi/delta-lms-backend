@@ -69,7 +69,10 @@ export class LeadsController {
   }
 
   @Get()
-  async getLeads(@Query('filter') filter: string, @Query('search') search: string) {
+  async getLeads(
+    @Query('filter') filter: string,
+    @Query('search') search: string,
+  ) {
     try {
       const leadsData = await this.leadsService.getLeads(filter, search);
       return { status: 200, ...leadsData };
@@ -132,10 +135,7 @@ export class LeadsController {
   }
 
   @Get('check-phone')
-  async checkPhone(
-    @Query('phone') phone: string,
-    @CurrentUser() user: any,
-  ) {
+  async checkPhone(@Query('phone') phone: string, @CurrentUser() user: any) {
     try {
       if (!phone) {
         this.errorService.errorThrower(400, {

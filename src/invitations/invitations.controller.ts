@@ -9,23 +9,26 @@ import { ErrorService } from '../common/error/error.service';
 export class InvitationsController {
   constructor(
     private readonly invitationsService: InvitationsService,
-    private readonly errorService: ErrorService
+    private readonly errorService: ErrorService,
   ) {}
 
   @Post()
   @UseGuards(JwtAuthGuard)
   async createInvitation(
     @Body() dto: CreateInvitationDto,
-    @CurrentUser() user: any
+    @CurrentUser() user: any,
   ) {
     try {
       return await this.invitationsService.createInvitation(
         user.company_id || '00000000-0000-0000-0000-000000000000',
         user.userId,
-        dto
+        dto,
       );
     } catch (error: any) {
-      this.errorService.errorThrower(error.status || 500, { message: error.message, details: error });
+      this.errorService.errorThrower(error.status || 500, {
+        message: error.message,
+        details: error,
+      });
     }
   }
 
@@ -34,7 +37,10 @@ export class InvitationsController {
     try {
       return await this.invitationsService.acceptInvitation(dto);
     } catch (error: any) {
-      this.errorService.errorThrower(error.status || 500, { message: error.message, details: error });
+      this.errorService.errorThrower(error.status || 500, {
+        message: error.message,
+        details: error,
+      });
     }
   }
 
@@ -43,10 +49,13 @@ export class InvitationsController {
   async getPendingInvitations(@CurrentUser() user: any) {
     try {
       return await this.invitationsService.getPendingInvitations(
-        user.company_id || '00000000-0000-0000-0000-000000000000'
+        user.company_id || '00000000-0000-0000-0000-000000000000',
       );
     } catch (error: any) {
-      this.errorService.errorThrower(error.status || 500, { message: error.message, details: error });
+      this.errorService.errorThrower(error.status || 500, {
+        message: error.message,
+        details: error,
+      });
     }
   }
 }

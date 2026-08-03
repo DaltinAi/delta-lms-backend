@@ -37,7 +37,7 @@ export class AppointmentsController {
       const user = req.user;
       const appointment = await this.appointmentsService.create(
         user.company_id,
-        user.id,
+        user.userId,
         createAppointmentDto,
       );
       return {

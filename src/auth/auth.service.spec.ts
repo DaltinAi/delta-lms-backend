@@ -73,7 +73,15 @@ describe('AuthService', () => {
       mockDbQuery
         .mockResolvedValueOnce({ rows: [] }) // email check
         .mockResolvedValueOnce({
-          rows: [{ id: 'uuid-1', email: dto.email, firstName: 'John', lastName: 'Doe', role: 'admin' }],
+          rows: [
+            {
+              id: 'uuid-1',
+              email: dto.email,
+              firstName: 'John',
+              lastName: 'Doe',
+              role: 'admin',
+            },
+          ],
         }); // insert
 
       const result = await service.register(dto);
@@ -82,7 +90,9 @@ describe('AuthService', () => {
 
     it('should throw 409 if email already registered', async () => {
       mockDbQuery.mockResolvedValueOnce({ rows: [{ id: 'existing' }] });
-      await expect(service.register(dto)).rejects.toMatchObject({ status: 409 });
+      await expect(service.register(dto)).rejects.toMatchObject({
+        status: 409,
+      });
     });
   });
 
@@ -94,7 +104,17 @@ describe('AuthService', () => {
     it('should login successfully with valid credentials', async () => {
       mockDbQuery
         .mockResolvedValueOnce({
-          rows: [{ id: 'uid', email: dto.email, password: 'hashed', first_name: 'J', last_name: 'D', role: 'admin', company_id: 'cid' }],
+          rows: [
+            {
+              id: 'uid',
+              email: dto.email,
+              password: 'hashed',
+              first_name: 'J',
+              last_name: 'D',
+              role: 'admin',
+              company_id: 'cid',
+            },
+          ],
         }) // find user
         .mockResolvedValueOnce({ rows: [] }); // save refresh token
 
@@ -112,7 +132,15 @@ describe('AuthService', () => {
 
     it('should throw 401 when password is wrong', async () => {
       mockDbQuery.mockResolvedValueOnce({
-        rows: [{ id: 'uid', email: dto.email, password: 'hashed', role: 'admin', company_id: 'cid' }],
+        rows: [
+          {
+            id: 'uid',
+            email: dto.email,
+            password: 'hashed',
+            role: 'admin',
+            company_id: 'cid',
+          },
+        ],
       });
       (bcrypt.compare as jest.Mock).mockResolvedValueOnce(false);
       await expect(service.login(dto)).rejects.toMatchObject({ status: 401 });
@@ -150,11 +178,20 @@ describe('AuthService', () => {
   // ─── refresh ───────────────────────────────────────────────────────────────
 
   describe('refresh()', () => {
-    const payload = { sub: 'uid', email: 'u@x.com', role: 'admin', company_id: 'cid' };
+    const payload = {
+      sub: 'uid',
+      email: 'u@x.com',
+      role: 'admin',
+      company_id: 'cid',
+    };
 
     it('should throw 401 for invalid refresh token signature', async () => {
-      mockJwtService.verify.mockImplementationOnce(() => { throw new Error('invalid'); });
-      await expect(service.refresh('bad-token')).rejects.toMatchObject({ status: 401 });
+      mockJwtService.verify.mockImplementationOnce(() => {
+        throw new Error('invalid');
+      });
+      await expect(service.refresh('bad-token')).rejects.toMatchObject({
+        status: 401,
+      });
     });
 
     it('should rotate token when refresh is valid', async () => {
@@ -164,8 +201,19 @@ describe('AuthService', () => {
       const futureDate = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
 
       const mockClient = {
-        query: jest.fn()
-          .mockResolvedValueOnce({ rows: [{ id: 'tok-id', user_id: 'uid', is_used: false, is_revoked: false, expires_at: futureDate }] })
+        query: jest
+          .fn()
+          .mockResolvedValueOnce({
+            rows: [
+              {
+                id: 'tok-id',
+                user_id: 'uid',
+                is_used: false,
+                is_revoked: false,
+                expires_at: futureDate,
+              },
+            ],
+          })
           .mockResolvedValueOnce({ rows: [{ company_id: 'cid' }] })
           .mockResolvedValueOnce({ rows: [] }) // mark used
           .mockResolvedValueOnce({ rows: [] }), // insert new
@@ -182,13 +230,26 @@ describe('AuthService', () => {
       const futureDate = new Date(Date.now() + 86400000);
 
       const mockClient = {
-        query: jest.fn()
-          .mockResolvedValueOnce({ rows: [{ id: 'tok-id', user_id: 'uid', is_used: true, is_revoked: false, expires_at: futureDate }] })
+        query: jest
+          .fn()
+          .mockResolvedValueOnce({
+            rows: [
+              {
+                id: 'tok-id',
+                user_id: 'uid',
+                is_used: true,
+                is_revoked: false,
+                expires_at: futureDate,
+              },
+            ],
+          })
           .mockResolvedValueOnce({ rows: [] }), // revoke all
       };
 
       mockDbTransaction.mockImplementationOnce((cb: any) => cb(mockClient));
-      await expect(service.refresh('reused-token')).rejects.toMatchObject({ status: 401 });
+      await expect(service.refresh('reused-token')).rejects.toMatchObject({
+        status: 401,
+      });
     });
   });
 });

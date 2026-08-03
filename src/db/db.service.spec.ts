@@ -59,16 +59,18 @@ describe('DbService', () => {
       // Simulate 1200ms execution by delaying the mock
       poolQueryMock.mockImplementationOnce(
         () =>
-          new Promise((resolve) =>
-            setTimeout(() => resolve(fakeResult), 1200),
-          ),
+          new Promise((resolve) => setTimeout(() => resolve(fakeResult), 1200)),
       );
 
-      const warnSpy = jest.spyOn(require('@nestjs/common').Logger, 'warn').mockImplementation(() => {});
+      const warnSpy = jest
+        .spyOn(require('@nestjs/common').Logger, 'warn')
+        .mockImplementation(() => {});
 
       await service.query('SELECT slow_thing FROM big_table');
 
-      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('Slow query'));
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Slow query'),
+      );
       warnSpy.mockRestore();
     }, 10000);
 
@@ -76,13 +78,18 @@ describe('DbService', () => {
       const dbError = new Error('connection refused');
       poolQueryMock.mockRejectedValueOnce(dbError);
 
-      await expect(service.query('SELECT 1')).rejects.toThrow('connection refused');
+      await expect(service.query('SELECT 1')).rejects.toThrow(
+        'connection refused',
+      );
     });
   });
 
   describe('healthCheck()', () => {
     it('should return true when DB is reachable', async () => {
-      poolQueryMock.mockResolvedValueOnce({ rows: [{ '?column?': 1 }], rowCount: 1 });
+      poolQueryMock.mockResolvedValueOnce({
+        rows: [{ '?column?': 1 }],
+        rowCount: 1,
+      });
       const result = await service.healthCheck();
       expect(result).toBe(true);
     });

@@ -15,8 +15,16 @@ const mockErrorService = {
   }),
 };
 
-const mockAdminUser = { userId: 'uid-admin', company_id: 'cid-1', role: 'admin' };
-const mockTelecallerUser = { userId: 'uid-tc', company_id: 'cid-1', role: 'telecaller' };
+const mockAdminUser = {
+  userId: 'uid-admin',
+  company_id: 'cid-1',
+  role: 'admin',
+};
+const mockTelecallerUser = {
+  userId: 'uid-tc',
+  company_id: 'cid-1',
+  role: 'telecaller',
+};
 
 describe('DashboardController', () => {
   let controller: DashboardController;
@@ -45,20 +53,39 @@ describe('DashboardController', () => {
     it('should return dashboard stats for admin', async () => {
       mockDashboardService.getStats.mockResolvedValueOnce(mockStats);
 
-      const result = await controller.getStats('2026-01-01', '2026-07-17', mockAdminUser);
+      const result = await controller.getStats(
+        '2026-01-01',
+        '2026-07-17',
+        mockAdminUser,
+      );
       expect(result).toEqual(mockStats);
       expect(mockDashboardService.getStats).toHaveBeenCalledWith(
-        'cid-1', 'uid-admin', 'admin', '2026-01-01', '2026-07-17',
+        'cid-1',
+        'uid-admin',
+        'admin',
+        '2026-01-01',
+        '2026-07-17',
       );
     });
 
     it('should return dashboard stats for telecaller', async () => {
-      mockDashboardService.getStats.mockResolvedValueOnce({ ...mockStats, totalLeads: 10 });
+      mockDashboardService.getStats.mockResolvedValueOnce({
+        ...mockStats,
+        totalLeads: 10,
+      });
 
-      const result = await controller.getStats(undefined as any, undefined as any, mockTelecallerUser);
+      const result = await controller.getStats(
+        undefined as any,
+        undefined as any,
+        mockTelecallerUser,
+      );
       expect(result.totalLeads).toBe(10);
       expect(mockDashboardService.getStats).toHaveBeenCalledWith(
-        'cid-1', 'uid-tc', 'telecaller', undefined, undefined,
+        'cid-1',
+        'uid-tc',
+        'telecaller',
+        undefined,
+        undefined,
       );
     });
 
@@ -66,17 +93,29 @@ describe('DashboardController', () => {
       mockDashboardService.getStats.mockResolvedValueOnce(mockStats);
 
       const userWithoutCompany = { userId: 'uid-1', role: 'admin' };
-      await controller.getStats(undefined as any, undefined as any, userWithoutCompany);
+      await controller.getStats(
+        undefined as any,
+        undefined as any,
+        userWithoutCompany,
+      );
 
       expect(mockDashboardService.getStats).toHaveBeenCalledWith(
         '00000000-0000-0000-0000-000000000000',
-        'uid-1', 'admin', undefined, undefined,
+        'uid-1',
+        'admin',
+        undefined,
+        undefined,
       );
     });
 
     it('should propagate errors from service', async () => {
-      mockDashboardService.getStats.mockRejectedValueOnce({ status: 500, message: 'DB error' });
-      await expect(controller.getStats(undefined as any, undefined as any, mockAdminUser)).rejects.toMatchObject({ status: 500 });
+      mockDashboardService.getStats.mockRejectedValueOnce({
+        status: 500,
+        message: 'DB error',
+      });
+      await expect(
+        controller.getStats(undefined as any, undefined as any, mockAdminUser),
+      ).rejects.toMatchObject({ status: 500 });
     });
   });
 });

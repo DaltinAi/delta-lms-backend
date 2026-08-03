@@ -38,7 +38,11 @@ describe('UsersController', () => {
     const mockUser = { userId: 'uid-1', company_id: 'cid' };
 
     it('should return profile when user is authenticated', async () => {
-      const profile = { id: 'uid-1', email: 'u@x.com', company: { name: 'Acme' } };
+      const profile = {
+        id: 'uid-1',
+        email: 'u@x.com',
+        company: { name: 'Acme' },
+      };
       mockUsersService.getProfile.mockResolvedValueOnce(profile);
 
       const result = await controller.getProfile(mockUser);
@@ -46,18 +50,25 @@ describe('UsersController', () => {
     });
 
     it('should throw 401 if user not provided', async () => {
-      await expect(controller.getProfile(null)).rejects.toMatchObject({ status: 401 });
+      await expect(controller.getProfile(null)).rejects.toMatchObject({
+        status: 401,
+      });
     });
 
     it('should throw 404 when profile not found', async () => {
       mockUsersService.getProfile.mockResolvedValueOnce(null);
-      await expect(controller.getProfile(mockUser)).rejects.toMatchObject({ status: 404 });
+      await expect(controller.getProfile(mockUser)).rejects.toMatchObject({
+        status: 404,
+      });
     });
   });
 
   describe('getActiveTelecallers()', () => {
     it('should return list of telecaller IDs', async () => {
-      mockUsersService.getActiveTelecallers.mockResolvedValueOnce(['tc-1', 'tc-2']);
+      mockUsersService.getActiveTelecallers.mockResolvedValueOnce([
+        'tc-1',
+        'tc-2',
+      ]);
       const result = await controller.getActiveTelecallers();
       expect(result).toEqual({ status: 200, data: ['tc-1', 'tc-2'] });
     });
@@ -74,7 +85,9 @@ describe('UsersController', () => {
 
     it('should throw 404 when user not found', async () => {
       mockUsersService.getUserById.mockResolvedValueOnce(null);
-      await expect(controller.getUserById('missing-id')).rejects.toMatchObject({ status: 404 });
+      await expect(controller.getUserById('missing-id')).rejects.toMatchObject({
+        status: 404,
+      });
     });
   });
 });

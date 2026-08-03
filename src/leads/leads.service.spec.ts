@@ -52,7 +52,11 @@ describe('LeadsService', () => {
       });
 
       const result = await service.checkPhoneExists('cid', '9876543210');
-      expect(result).toEqual({ exists: true, leadId: 'lead-1', name: 'John Doe' });
+      expect(result).toEqual({
+        exists: true,
+        leadId: 'lead-1',
+        name: 'John Doe',
+      });
     });
 
     it('should return exists: false when phone not found', async () => {
@@ -71,7 +75,9 @@ describe('LeadsService', () => {
 
     it('should throw on DB error', async () => {
       mockDbQuery.mockRejectedValueOnce(new Error('DB down'));
-      await expect(service.checkPhoneExists('cid', '9999999999')).rejects.toThrow('DB down');
+      await expect(
+        service.checkPhoneExists('cid', '9999999999'),
+      ).rejects.toThrow('DB down');
     });
   });
 
@@ -136,18 +142,20 @@ describe('LeadsService', () => {
       mockDbQuery.mockResolvedValueOnce({ rows: [{ id: 'tc-1' }] }); // round-robin
 
       const mockClient = {
-        query: jest.fn()
+        query: jest
+          .fn()
           .mockResolvedValueOnce({ rows: [{ id: 'stage-1' }] }) // default stage
-          .mockResolvedValueOnce({ rows: [newLead] })            // insert lead
-          .mockResolvedValueOnce({ rows: [] })                   // stage history
-          .mockResolvedValueOnce({ rows: [] }),                  // assignment history
+          .mockResolvedValueOnce({ rows: [newLead] }) // insert lead
+          .mockResolvedValueOnce({ rows: [] }) // stage history
+          .mockResolvedValueOnce({ rows: [] }), // assignment history
       };
 
       mockDbTransaction.mockImplementationOnce((cb: any) => cb(mockClient));
 
       const result = await service.createLead('cid', 'uid', {
-        firstName: 'Jane', phone: '9876543210',
-      } as any);
+        firstName: 'Jane',
+        phone: '9876543210',
+      });
 
       expect(result).toEqual(newLead);
     });
@@ -160,20 +168,24 @@ describe('LeadsService', () => {
       const updated = { id: 'l1', first_name: 'Updated' };
       mockDbQuery.mockResolvedValueOnce({ rows: [updated] });
 
-      const result = await service.updateLead('l1', 'cid', { firstName: 'Updated' } as any);
+      const result = await service.updateLead('l1', 'cid', {
+        firstName: 'Updated',
+      });
       expect(result).toEqual(updated);
     });
 
     it('should return null when lead not found', async () => {
       mockDbQuery.mockResolvedValueOnce({ rows: [] });
-      const result = await service.updateLead('l1', 'cid', { firstName: 'X' } as any);
+      const result = await service.updateLead('l1', 'cid', {
+        firstName: 'X',
+      });
       expect(result).toBeNull();
     });
 
     it('should call getLeadById when no fields provided', async () => {
       const lead = { id: 'l1' };
       mockDbQuery.mockResolvedValueOnce({ rows: [lead] });
-      const result = await service.updateLead('l1', 'cid', {} as any);
+      const result = await service.updateLead('l1', 'cid', {});
       expect(result).toEqual(lead);
     });
   });
@@ -194,7 +206,9 @@ describe('LeadsService', () => {
 
     it('should throw when telecaller not found', async () => {
       mockDbQuery.mockResolvedValueOnce({ rows: [] });
-      await expect(service.reassignLeads(['l1'], 'bad-tc', 'admin')).rejects.toThrow();
+      await expect(
+        service.reassignLeads(['l1'], 'bad-tc', 'admin'),
+      ).rejects.toThrow();
     });
   });
 });

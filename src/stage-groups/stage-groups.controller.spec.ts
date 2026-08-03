@@ -39,18 +39,27 @@ describe('StageGroupsController', () => {
     const dto = { name: 'Hot Leads', stage_ids: ['s-1', 's-2'] };
 
     it('should create a stage group and return it', async () => {
-      const group = { id: 'sg-1', name: 'Hot Leads', stages: [{ id: 's-1' }, { id: 's-2' }] };
+      const group = {
+        id: 'sg-1',
+        name: 'Hot Leads',
+        stages: [{ id: 's-1' }, { id: 's-2' }],
+      };
       mockStageGroupsService.createStageGroup.mockResolvedValueOnce(group);
 
-      const result = await controller.createStageGroup(dto as any, mockUser);
+      const result = await controller.createStageGroup(dto, mockUser);
       // controller returns raw service result (no status wrapper)
       expect(result).toEqual(group);
-      expect(mockStageGroupsService.createStageGroup).toHaveBeenCalledWith('cid-1', dto);
+      expect(mockStageGroupsService.createStageGroup).toHaveBeenCalledWith(
+        'cid-1',
+        dto,
+      );
     });
 
     it('should throw 403 when non-admin tries to create stage group', async () => {
       const nonAdmin = { ...mockUser, role: 'telecaller' };
-      await expect(controller.createStageGroup(dto as any, nonAdmin)).rejects.toMatchObject({ status: 403 });
+      await expect(
+        controller.createStageGroup(dto as any, nonAdmin),
+      ).rejects.toMatchObject({ status: 403 });
     });
   });
 
@@ -65,7 +74,9 @@ describe('StageGroupsController', () => {
       const result = await controller.getStageGroups(mockUser);
       // controller returns raw service result
       expect(result).toEqual(groups);
-      expect(mockStageGroupsService.getStageGroups).toHaveBeenCalledWith('cid-1');
+      expect(mockStageGroupsService.getStageGroups).toHaveBeenCalledWith(
+        'cid-1',
+      );
     });
 
     it('should return empty array when no groups', async () => {

@@ -38,7 +38,10 @@ describe('CallsService', () => {
         json: jest.fn().mockResolvedValueOnce(responseData),
       });
 
-      const result = await service.proxyCall('initiate', { leadId: 'l-1', phone: '9876543210' });
+      const result = await service.proxyCall('initiate', {
+        leadId: 'l-1',
+        phone: '9876543210',
+      });
       expect(result).toEqual(responseData);
       expect(mockFetch).toHaveBeenCalledWith(
         expect.stringContaining('/calls/initiate'),
@@ -53,13 +56,17 @@ describe('CallsService', () => {
         json: jest.fn().mockResolvedValueOnce({ message: 'Bad Gateway' }),
       });
 
-      await expect(service.proxyCall('initiate', {})).rejects.toMatchObject({ status: 502 });
+      await expect(service.proxyCall('initiate', {})).rejects.toMatchObject({
+        status: 502,
+      });
     });
 
     it('should throw 500 on network/fetch error', async () => {
       mockFetch.mockRejectedValueOnce(new Error('Network failure'));
 
-      await expect(service.proxyCall('initiate', {})).rejects.toMatchObject({ status: 500 });
+      await expect(service.proxyCall('initiate', {})).rejects.toMatchObject({
+        status: 500,
+      });
     });
   });
 });

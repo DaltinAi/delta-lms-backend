@@ -45,38 +45,69 @@ describe('InvitationsController', () => {
         inviteLink: '/invite/accept?token=abc123',
         expiresAt: new Date(),
       };
-      mockInvitationsService.createInvitation.mockResolvedValueOnce(serviceResult);
+      mockInvitationsService.createInvitation.mockResolvedValueOnce(
+        serviceResult,
+      );
 
-      const result = await controller.createInvitation(dto as any, mockUser);
+      const result = await controller.createInvitation(dto, mockUser);
       expect(result).toEqual(serviceResult);
-      expect(mockInvitationsService.createInvitation).toHaveBeenCalledWith('cid-1', 'uid-admin', dto);
+      expect(mockInvitationsService.createInvitation).toHaveBeenCalledWith(
+        'cid-1',
+        'uid-admin',
+        dto,
+      );
     });
 
     it('should propagate 409 when user already exists', async () => {
-      mockInvitationsService.createInvitation.mockRejectedValueOnce({ status: 409, message: 'User already exists' });
-      await expect(controller.createInvitation(dto as any, mockUser)).rejects.toMatchObject({ status: 409 });
+      mockInvitationsService.createInvitation.mockRejectedValueOnce({
+        status: 409,
+        message: 'User already exists',
+      });
+      await expect(
+        controller.createInvitation(dto as any, mockUser),
+      ).rejects.toMatchObject({ status: 409 });
     });
   });
 
   describe('acceptInvitation()', () => {
-    const dto = { token: 'valid-tok', firstName: 'John', lastName: 'Doe', password: 'Pass@123' };
+    const dto = {
+      token: 'valid-tok',
+      firstName: 'John',
+      lastName: 'Doe',
+      password: 'Pass@123',
+    };
 
     it('should accept invitation and return created user', async () => {
-      const serviceResult = { message: 'Account created successfully', user: { id: 'uid-new', email: 'newuser@acme.com' } };
-      mockInvitationsService.acceptInvitation.mockResolvedValueOnce(serviceResult);
+      const serviceResult = {
+        message: 'Account created successfully',
+        user: { id: 'uid-new', email: 'newuser@acme.com' },
+      };
+      mockInvitationsService.acceptInvitation.mockResolvedValueOnce(
+        serviceResult,
+      );
 
-      const result = await controller.acceptInvitation(dto as any);
+      const result = await controller.acceptInvitation(dto);
       expect(result).toEqual(serviceResult);
     });
 
     it('should propagate 404 for invalid token', async () => {
-      mockInvitationsService.acceptInvitation.mockRejectedValueOnce({ status: 404, message: 'Invalid token' });
-      await expect(controller.acceptInvitation(dto as any)).rejects.toMatchObject({ status: 404 });
+      mockInvitationsService.acceptInvitation.mockRejectedValueOnce({
+        status: 404,
+        message: 'Invalid token',
+      });
+      await expect(
+        controller.acceptInvitation(dto as any),
+      ).rejects.toMatchObject({ status: 404 });
     });
 
     it('should propagate 400 for expired invitation', async () => {
-      mockInvitationsService.acceptInvitation.mockRejectedValueOnce({ status: 400, message: 'Invitation has expired' });
-      await expect(controller.acceptInvitation(dto as any)).rejects.toMatchObject({ status: 400 });
+      mockInvitationsService.acceptInvitation.mockRejectedValueOnce({
+        status: 400,
+        message: 'Invitation has expired',
+      });
+      await expect(
+        controller.acceptInvitation(dto as any),
+      ).rejects.toMatchObject({ status: 400 });
     });
   });
 
@@ -88,7 +119,9 @@ describe('InvitationsController', () => {
       const result = await controller.getPendingInvitations(mockUser);
       // controller returns raw service result
       expect(result).toEqual(rows);
-      expect(mockInvitationsService.getPendingInvitations).toHaveBeenCalledWith('cid-1');
+      expect(mockInvitationsService.getPendingInvitations).toHaveBeenCalledWith(
+        'cid-1',
+      );
     });
   });
 });

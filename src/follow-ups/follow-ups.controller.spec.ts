@@ -41,13 +41,25 @@ describe('FollowUpsController', () => {
       const followUp = { id: 'fu-1', lead_id: 'l-1', mode: 'call' };
       mockFollowUpsService.createFollowUp.mockResolvedValueOnce(followUp);
 
-      const result = await controller.createFollowUp({ leadId: 'l-1', scheduledFor: '2026-07-20', mode: 'call' } as any, mockUser);
-      expect(result).toEqual({ status: 201, message: 'Follow-up scheduled', data: followUp });
+      const result = await controller.createFollowUp(
+        { leadId: 'l-1', scheduledFor: '2026-07-20', mode: 'call' },
+        mockUser,
+      );
+      expect(result).toEqual({
+        status: 201,
+        message: 'Follow-up scheduled',
+        data: followUp,
+      });
     });
 
     it('should propagate 404 when lead not found', async () => {
-      mockFollowUpsService.createFollowUp.mockRejectedValueOnce({ status: 404, message: 'Lead not found' });
-      await expect(controller.createFollowUp({} as any, mockUser)).rejects.toMatchObject({ status: 404 });
+      mockFollowUpsService.createFollowUp.mockRejectedValueOnce({
+        status: 404,
+        message: 'Lead not found',
+      });
+      await expect(
+        controller.createFollowUp({} as any, mockUser),
+      ).rejects.toMatchObject({ status: 404 });
     });
   });
 
@@ -58,7 +70,10 @@ describe('FollowUpsController', () => {
 
       const result = await controller.getFollowUps('userId=uid-1', mockUser);
       expect(result).toEqual({ status: 200, data: rows });
-      expect(mockFollowUpsService.getFollowUps).toHaveBeenCalledWith('cid-1', 'userId=uid-1');
+      expect(mockFollowUpsService.getFollowUps).toHaveBeenCalledWith(
+        'cid-1',
+        'userId=uid-1',
+      );
     });
 
     it('should work with no filter string', async () => {
@@ -74,12 +89,21 @@ describe('FollowUpsController', () => {
       mockFollowUpsService.completeFollowUp.mockResolvedValueOnce(updated);
 
       const result = await controller.completeFollowUp('fu-1', mockUser);
-      expect(result).toEqual({ status: 200, message: 'Follow-up marked as completed', data: updated });
+      expect(result).toEqual({
+        status: 200,
+        message: 'Follow-up marked as completed',
+        data: updated,
+      });
     });
 
     it('should propagate 404 when follow-up not found', async () => {
-      mockFollowUpsService.completeFollowUp.mockRejectedValueOnce({ status: 404, message: 'Follow-up not found' });
-      await expect(controller.completeFollowUp('fu-missing', mockUser)).rejects.toMatchObject({ status: 404 });
+      mockFollowUpsService.completeFollowUp.mockRejectedValueOnce({
+        status: 404,
+        message: 'Follow-up not found',
+      });
+      await expect(
+        controller.completeFollowUp('fu-missing', mockUser),
+      ).rejects.toMatchObject({ status: 404 });
     });
   });
 });

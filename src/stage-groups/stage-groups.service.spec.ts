@@ -37,21 +37,30 @@ describe('StageGroupsService', () => {
   afterEach(() => jest.clearAllMocks());
 
   describe('createStageGroup()', () => {
-    const dto = { name: 'Hot Leads', description: 'All interested leads', stage_ids: ['s-1', 's-2'] };
+    const dto = {
+      name: 'Hot Leads',
+      description: 'All interested leads',
+      stage_ids: ['s-1', 's-2'],
+    };
 
     it('should create a stage group with stages and return it', async () => {
       const groupRow = { id: 'sg-1', name: 'Hot Leads' };
-      const finalRow = { id: 'sg-1', name: 'Hot Leads', stages: [{ id: 's-1' }, { id: 's-2' }] };
+      const finalRow = {
+        id: 'sg-1',
+        name: 'Hot Leads',
+        stages: [{ id: 's-1' }, { id: 's-2' }],
+      };
 
       const mockClient = {
-        query: jest.fn()
-          .mockResolvedValueOnce({ rows: [groupRow] })  // insert group
-          .mockResolvedValueOnce({ rows: [] })           // insert members
+        query: jest
+          .fn()
+          .mockResolvedValueOnce({ rows: [groupRow] }) // insert group
+          .mockResolvedValueOnce({ rows: [] }) // insert members
           .mockResolvedValueOnce({ rows: [finalRow] }), // fetch result
       };
       mockDbTransaction.mockImplementationOnce((cb: any) => cb(mockClient));
 
-      const result = await service.createStageGroup('cid', dto as any);
+      const result = await service.createStageGroup('cid', dto);
       expect(result.stages).toHaveLength(2);
     });
 
@@ -60,13 +69,17 @@ describe('StageGroupsService', () => {
       const finalRow = { id: 'sg-2', name: 'Empty Group', stages: [] };
 
       const mockClient = {
-        query: jest.fn()
+        query: jest
+          .fn()
           .mockResolvedValueOnce({ rows: [groupRow] })
           .mockResolvedValueOnce({ rows: [finalRow] }),
       };
       mockDbTransaction.mockImplementationOnce((cb: any) => cb(mockClient));
 
-      const result = await service.createStageGroup('cid', { name: 'Empty Group', stage_ids: [] } as any);
+      const result = await service.createStageGroup('cid', {
+        name: 'Empty Group',
+        stage_ids: [],
+      });
       expect(result.stages).toHaveLength(0);
     });
 
@@ -79,14 +92,20 @@ describe('StageGroupsService', () => {
       };
       mockDbTransaction.mockImplementationOnce((cb: any) => cb(mockClient));
 
-      await expect(service.createStageGroup('cid', dto as any)).rejects.toMatchObject({ status: 409 });
+      await expect(
+        service.createStageGroup('cid', dto as any),
+      ).rejects.toMatchObject({ status: 409 });
     });
   });
 
   describe('getStageGroups()', () => {
     it('should return stage groups with nested stages', async () => {
       const rows = [
-        { id: 'sg-1', name: 'Group A', stages: [{ id: 's-1', name: 'New Lead' }] },
+        {
+          id: 'sg-1',
+          name: 'Group A',
+          stages: [{ id: 's-1', name: 'New Lead' }],
+        },
         { id: 'sg-2', name: 'Group B', stages: [] },
       ];
       mockDbQuery.mockResolvedValueOnce({ rows });

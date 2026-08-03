@@ -1,6 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { DbService } from '../../db/db.service';
-import { getCallMetrics, getHourlyCallActivity } from '../../utils/ivr-firebase';
+import {
+  getCallMetrics,
+  getHourlyCallActivity,
+} from '../../utils/ivr-firebase';
 
 export interface AnalyticsParams {
   startDate: string;
@@ -17,7 +20,7 @@ import { ErrorService } from '../../common/error/error.service';
 export class TelecallerAnalyticsStrategy {
   constructor(
     private readonly dbService: DbService,
-    private readonly errorService: ErrorService
+    private readonly errorService: ErrorService,
   ) {}
 
   async getAnalytics(params: AnalyticsParams): Promise<any> {
@@ -31,7 +34,12 @@ export class TelecallerAnalyticsStrategy {
 
       // Leads-based WHERE: scoped to user and date range
       const leadsWhere = `l.is_deleted = false AND l.company_id = $1 AND l.assigned_to = $2 AND l.created_at >= $3 AND l.created_at <= $4`;
-      const leadsParams = [companyId, targetUserId, finalStartDate, finalEndDate];
+      const leadsParams = [
+        companyId,
+        targetUserId,
+        finalStartDate,
+        finalEndDate,
+      ];
 
       // Run all queries in parallel
       const [
@@ -89,12 +97,7 @@ export class TelecallerAnalyticsStrategy {
         ),
 
         // 4. Call Metrics from Firebase
-        getCallMetrics(
-          companyId,
-          finalStartDate,
-          finalEndDate,
-          targetUserId,
-        ),
+        getCallMetrics(companyId, finalStartDate, finalEndDate, targetUserId),
 
         // 5. Hourly Activity from Firebase
         getHourlyCallActivity(
@@ -121,7 +124,9 @@ export class TelecallerAnalyticsStrategy {
       const followUpsCompleted = followUps.completedFollowUps ?? 0;
       const followUpCompletionRate =
         followUpsCreated > 0
-          ? parseFloat(((followUpsCompleted / followUpsCreated) * 100).toFixed(1))
+          ? parseFloat(
+              ((followUpsCompleted / followUpsCreated) * 100).toFixed(1),
+            )
           : 0;
 
       return {
@@ -145,7 +150,10 @@ export class TelecallerAnalyticsStrategy {
         hourlyActivity: hourlyActivity,
       };
     } catch (error) {
-      console.error('[TelecallerAnalyticsStrategy] Error fetching analytics:', error);
+      console.error(
+        '[TelecallerAnalyticsStrategy] Error fetching analytics:',
+        error,
+      );
       throw error;
     }
   }

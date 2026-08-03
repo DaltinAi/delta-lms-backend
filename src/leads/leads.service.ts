@@ -340,14 +340,17 @@ export class LeadsService {
   /**
    * Retrieves leads based on filters and search.
    */
-  async getLeads(filterStr?: string, searchStr?: string): Promise<{ data: any[]; total: number }> {
+  async getLeads(
+    filterStr?: string,
+    searchStr?: string,
+  ): Promise<{ data: any[]; total: number }> {
     let limit = 10;
     let offset = 0;
     const filterClauses: string[] = ['l.is_deleted = false'];
     const values: any[] = [];
     let idx = 1;
     let joinStages = false;
-    let joinFollowUps = false;
+    const joinFollowUps = false;
 
     if (filterStr) {
       const parts = filterStr.split(',');
@@ -361,29 +364,23 @@ export class LeadsService {
         else if (k === 'stageId') {
           filterClauses.push(`l.current_stage_id = $${idx++}`);
           values.push(val);
-        }
-        else if (k === 'stageType') {
+        } else if (k === 'stageType') {
           filterClauses.push(`s.key = $${idx++}`);
           values.push(val);
           joinStages = true;
-        }
-        else if (k === 'startDate') {
+        } else if (k === 'startDate') {
           filterClauses.push(`l.created_at >= $${idx++}`);
           values.push(val);
-        }
-        else if (k === 'endDate') {
+        } else if (k === 'endDate') {
           filterClauses.push(`l.created_at <= $${idx++}`);
           values.push(val);
-        }
-        else if (k === 'source') {
+        } else if (k === 'source') {
           filterClauses.push(`l.data->>'source' = $${idx++}`);
           values.push(val);
-        }
-        else if (k === 'country' || k === 'interestedCountry') {
+        } else if (k === 'country' || k === 'interestedCountry') {
           filterClauses.push(`l.data->>'country' = $${idx++}`);
           values.push(val);
-        }
-        else if (k === 'tab') {
+        } else if (k === 'tab') {
           // Additional logic for 'tab' can be placed here if needed.
           // For now, stageType handles the primary filtering.
         }
@@ -391,10 +388,12 @@ export class LeadsService {
     }
 
     if (searchStr) {
-        const decodedSearch = decodeURIComponent(searchStr);
-        filterClauses.push(`(l.first_name ILIKE $${idx} OR l.last_name ILIKE $${idx} OR l.phone ILIKE $${idx} OR l.email ILIKE $${idx})`);
-        values.push(`%${decodedSearch}%`);
-        idx++;
+      const decodedSearch = decodeURIComponent(searchStr);
+      filterClauses.push(
+        `(l.first_name ILIKE $${idx} OR l.last_name ILIKE $${idx} OR l.phone ILIKE $${idx} OR l.email ILIKE $${idx})`,
+      );
+      values.push(`%${decodedSearch}%`);
+      idx++;
     }
 
     try {
@@ -408,20 +407,18 @@ export class LeadsService {
       if (joinFollowUps) {
         query += ` LEFT JOIN ${TableConstants.FOLLOW_UPS} f ON f.lead_id = l.id`;
       }
-      
+
       query += ` WHERE ${filterClauses.join(' AND ')}
         ORDER BY l.created_at DESC
         LIMIT $${idx++} OFFSET $${idx++}
       `;
-      
+
       values.push(limit, offset);
 
       const result = await this.dbService.query(query, values);
 
       const total =
-        result.rows.length > 0
-          ? parseInt(result.rows[0].total_count, 10)
-          : 0;
+        result.rows.length > 0 ? parseInt(result.rows[0].total_count, 10) : 0;
 
       // Strip total_count from returned rows so it doesn't leak into the response
       const data = result.rows.map(({ total_count, ...row }) => row);

@@ -1,4 +1,10 @@
-import { IsString, IsNotEmpty, IsArray, IsOptional, IsUUID } from 'class-validator';
+import {
+  IsString,
+  IsNotEmpty,
+  IsArray,
+  IsOptional,
+  IsUUID,
+} from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateStageGroupDto {
@@ -12,7 +18,10 @@ export class CreateStageGroupDto {
   @IsOptional()
   description?: string;
 
-  @ApiPropertyOptional({ description: 'Array of stage IDs in this group', type: [String] })
+  @ApiPropertyOptional({
+    description: 'Array of stage IDs in this group',
+    type: [String],
+  })
   @IsArray()
   @IsUUID('all', { each: true })
   @IsOptional()
