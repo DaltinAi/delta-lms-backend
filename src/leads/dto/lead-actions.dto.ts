@@ -30,4 +30,18 @@ export class UpdateLeadStageDto {
   @IsString()
   @IsOptional()
   remark?: string;
+
+  @ApiPropertyOptional({
+    description: 'Mandatory sub-status for Interested/Cold counsellor stages',
+  })
+  @IsString()
+  @IsOptional()
+  subStatus?: string;
+
+  @ApiPropertyOptional({
+    description: 'Counsellor ID assigned during walk-in flow',
+  })
+  @IsUUID()
+  @IsOptional()
+  counselorId?: string;
 }

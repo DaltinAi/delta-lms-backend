@@ -201,11 +201,13 @@ export class LeadsService {
     toStageId: string,
     userId: string,
     remark?: string,
+    subStatus?: string,
+    counselorId?: string,
   ) {
     return this.dbService.transaction(async (client) => {
       // 1. Get the current lead to verify it exists and belongs to the company
       const leadResult = await client.query(
-        `SELECT id, current_stage_id FROM ${TableConstants.LEADS} WHERE id = $1 AND company_id = $2 AND is_deleted = false FOR UPDATE`,
+        `SELECT id, current_stage_id, data FROM ${TableConstants.LEADS} WHERE id = $1 AND company_id = $2 AND is_deleted = false FOR UPDATE`,
         [id, companyId],
       );
 
@@ -217,7 +219,10 @@ export class LeadsService {
 
       // Resolve stage key if toStageId is not a UUID
       let targetStageId = toStageId;
-      const isUuid = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(toStageId);
+      const isUuid =
+        /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(
+          toStageId,
+        );
       if (!isUuid) {
         const stageRes = await client.query(
           `SELECT id FROM ${TableConstants.STAGES} WHERE company_id = $1 AND (LOWER(key) = $2 OR LOWER(name) ILIKE $3) LIMIT 1`,
@@ -233,11 +238,31 @@ export class LeadsService {
         return { message: 'Lead is already in this stage' };
       }
 
-      // 3. Update the lead's current stage
-      await client.query(
-        `UPDATE ${TableConstants.LEADS} SET current_stage_id = $1, updated_at = NOW() WHERE id = $2`,
-        [targetStageId, id],
-      );
+      // 3. Update the lead's current stage and metadata
+      let updatedData = lead.data || {};
+      let needsDataUpdate = false;
+
+      if (subStatus !== undefined) {
+        updatedData = { ...updatedData, sub_status: subStatus };
+        needsDataUpdate = true;
+      }
+
+      if (counselorId !== undefined) {
+        updatedData = { ...updatedData, counselorId: counselorId };
+        needsDataUpdate = true;
+      }
+
+      if (needsDataUpdate) {
+        await client.query(
+          `UPDATE ${TableConstants.LEADS} SET current_stage_id = $1, data = $2, updated_at = NOW() WHERE id = $3`,
+          [targetStageId, updatedData, id],
+        );
+      } else {
+        await client.query(
+          `UPDATE ${TableConstants.LEADS} SET current_stage_id = $1, updated_at = NOW() WHERE id = $2`,
+          [targetStageId, id],
+        );
+      }
 
       // 4. Log the stage history
       await client.query(
@@ -293,7 +318,8 @@ export class LeadsService {
         `SELECT id FROM ${TableConstants.STAGES} WHERE company_id = $1 AND (LOWER(key) IN ('enrolled', 'appointment') OR LOWER(name) ILIKE '%enrolled%') LIMIT 1`,
         [companyId],
       );
-      const enrolledStageId = stageRes.rows.length > 0 ? stageRes.rows[0].id : lead.current_stage_id;
+      const enrolledStageId =
+        stageRes.rows.length > 0 ? stageRes.rows[0].id : lead.current_stage_id;
 
       // 3. Update lead data and stage
       const updateResult = await client.query(
@@ -435,6 +461,7 @@ export class LeadsService {
     filterStr?: string,
     searchStr?: string,
     tabStr?: string,
+    userRole?: string,
   ): Promise<{ data: any[]; total: number }> {
     let limit = 10;
     let offset = 0;
@@ -443,6 +470,16 @@ export class LeadsService {
     let idx = 1;
     let joinStages = false;
     const joinFollowUps = false;
+
+    if (userRole && userRole.toLowerCase() !== 'admin') {
+      joinStages = true;
+      if (userRole.toLowerCase() === 'counsellor') {
+        filterClauses.push(`LOWER(s.role) IN ('counsellor', 'receptionist')`);
+      } else {
+        filterClauses.push(`LOWER(s.role) = $${idx++}`);
+        values.push(userRole.toLowerCase());
+      }
+    }
 
     if (filterStr) {
       const parts = filterStr.split(',');
@@ -480,13 +517,21 @@ export class LeadsService {
       joinStages = true;
       const tabVal = tabStr.toLowerCase();
       if (tabVal === 'new') {
-        filterClauses.push(`(LOWER(s.key) IN ('new', 'walk_in') OR LOWER(s.name) ILIKE '%new%')`);
+        filterClauses.push(
+          `(LOWER(s.key) IN ('new', 'walk_in') OR LOWER(s.name) ILIKE '%new%')`,
+        );
       } else if (tabVal === 'interested') {
-        filterClauses.push(`(LOWER(s.key) = 'interested' OR LOWER(s.name) ILIKE '%interested%')`);
+        filterClauses.push(
+          `(LOWER(s.key) = 'interested' OR LOWER(s.name) ILIKE '%interested%')`,
+        );
       } else if (tabVal === 'booked' || tabVal === 'enrolled') {
-        filterClauses.push(`(LOWER(s.key) IN ('appointment', 'enrolled', 'appointment_booked') OR LOWER(s.name) ILIKE '%booked%' OR LOWER(s.name) ILIKE '%enrolled%')`);
+        filterClauses.push(
+          `(LOWER(s.key) IN ('appointment', 'enrolled', 'appointment_booked') OR LOWER(s.name) ILIKE '%booked%' OR LOWER(s.name) ILIKE '%enrolled%')`,
+        );
       } else if (tabVal === 'cold') {
-        filterClauses.push(`(LOWER(s.key) IN ('not_interested', 'cold') OR LOWER(s.name) ILIKE '%cold%' OR LOWER(s.name) ILIKE '%not interested%')`);
+        filterClauses.push(
+          `(LOWER(s.key) IN ('not_interested', 'cold') OR LOWER(s.name) ILIKE '%cold%' OR LOWER(s.name) ILIKE '%not interested%')`,
+        );
       }
     }
 

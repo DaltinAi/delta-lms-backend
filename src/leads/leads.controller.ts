@@ -73,9 +73,15 @@ export class LeadsController {
     @Query('filter') filter: string,
     @Query('search') search: string,
     @Query('tab') tab: string,
+    @CurrentUser() user: any,
   ) {
     try {
-      const leadsData = await this.leadsService.getLeads(filter, search, tab);
+      const leadsData = await this.leadsService.getLeads(
+        filter,
+        search,
+        tab,
+        user.role,
+      );
       return { status: 200, ...leadsData };
     } catch (error: any) {
       this.errorService.errorThrower(error.status || 500, {
@@ -125,6 +131,8 @@ export class LeadsController {
         body.toStageId,
         user.userId,
         body.remark,
+        body.subStatus,
+        body.counselorId,
       );
       return { status: 200, ...result };
     } catch (error: any) {
@@ -148,7 +156,11 @@ export class LeadsController {
         user.userId,
         bookingData,
       );
-      return { status: 200, message: 'Lead booked/enrolled successfully', data };
+      return {
+        status: 200,
+        message: 'Lead booked/enrolled successfully',
+        data,
+      };
     } catch (error: any) {
       this.errorService.errorThrower(error.status || 500, {
         message: error.message,

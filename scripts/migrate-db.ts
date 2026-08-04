@@ -57,10 +57,32 @@ async function migrate() {
           is_active BOOLEAN NOT NULL DEFAULT true,
           is_default BOOLEAN NOT NULL DEFAULT false,
           stage_type TEXT DEFAULT 'normal',
+          role VARCHAR(50) DEFAULT 'telecaller',
           created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
           updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-          UNIQUE (company_id, key),
-          UNIQUE (company_id, name)
+          UNIQUE (company_id, key, role),
+          UNIQUE (company_id, name, role)
+      );
+    `);
+
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS enrollments_delta (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          lead_id UUID NOT NULL REFERENCES leads_delta(id) ON DELETE CASCADE,
+          company_id UUID NOT NULL REFERENCES companies_delta(id) ON DELETE CASCADE,
+          counsellor_id UUID REFERENCES users_delta(id),
+          country VARCHAR(100) NOT NULL,
+          preferred_city VARCHAR(100),
+          package_amount NUMERIC(12, 2) NOT NULL,
+          advance_fee NUMERIC(12, 2) NOT NULL,
+          advance_type VARCHAR(50) NOT NULL,
+          post_visa_amount NUMERIC(12, 2) NOT NULL,
+          agent_name VARCHAR(100),
+          amount_for_agent NUMERIC(12, 2),
+          metadata JSONB DEFAULT '{}'::jsonb,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+          updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+          UNIQUE(lead_id)
       );
     `);
 

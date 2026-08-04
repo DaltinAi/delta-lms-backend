@@ -67,14 +67,16 @@ export class CompaniesService {
         ],
       );
 
-      // 5. Create 15 Default Stages
+      // 5. Create Default Stages for all roles
       const defaultStages = [
+        // Telecaller Stages
         {
           key: 'new',
           name: 'New Lead',
           sort_order: 100,
           is_default: true,
           stage_type: 'neutral',
+          role: 'telecaller',
         },
         {
           key: 'live_call',
@@ -82,6 +84,7 @@ export class CompaniesService {
           sort_order: 200,
           is_default: false,
           stage_type: 'system',
+          role: 'telecaller',
         },
         {
           key: 'call_not_pick',
@@ -89,6 +92,7 @@ export class CompaniesService {
           sort_order: 300,
           is_default: false,
           stage_type: 'negative',
+          role: 'telecaller',
         },
         {
           key: 'wrong_number',
@@ -96,6 +100,7 @@ export class CompaniesService {
           sort_order: 400,
           is_default: false,
           stage_type: 'negative',
+          role: 'telecaller',
         },
         {
           key: 'missed_call',
@@ -103,6 +108,7 @@ export class CompaniesService {
           sort_order: 500,
           is_default: false,
           stage_type: 'negative',
+          role: 'telecaller',
         },
         {
           key: 'pending',
@@ -110,6 +116,7 @@ export class CompaniesService {
           sort_order: 600,
           is_default: false,
           stage_type: 'neutral',
+          role: 'telecaller',
         },
         {
           key: 'interested',
@@ -117,6 +124,7 @@ export class CompaniesService {
           sort_order: 700,
           is_default: false,
           stage_type: 'positive',
+          role: 'telecaller',
         },
         {
           key: 'not_interested',
@@ -124,6 +132,7 @@ export class CompaniesService {
           sort_order: 800,
           is_default: false,
           stage_type: 'negative',
+          role: 'telecaller',
         },
         {
           key: 'not_eligible',
@@ -131,6 +140,7 @@ export class CompaniesService {
           sort_order: 900,
           is_default: false,
           stage_type: 'negative',
+          role: 'telecaller',
         },
         {
           key: 'follow_up',
@@ -138,13 +148,7 @@ export class CompaniesService {
           sort_order: 1000,
           is_default: false,
           stage_type: 'neutral',
-        },
-        {
-          key: 'walk_in',
-          name: 'Walk-in',
-          sort_order: 1100,
-          is_default: false,
-          stage_type: 'positive',
+          role: 'telecaller',
         },
         {
           key: 'appointment',
@@ -152,13 +156,7 @@ export class CompaniesService {
           sort_order: 1200,
           is_default: false,
           stage_type: 'positive',
-        },
-        {
-          key: 'enrolled',
-          name: 'Enrolled',
-          sort_order: 1300,
-          is_default: false,
-          stage_type: 'positive',
+          role: 'telecaller',
         },
         {
           key: 'day_close',
@@ -166,6 +164,7 @@ export class CompaniesService {
           sort_order: 1400,
           is_default: false,
           stage_type: 'system',
+          role: 'telecaller',
         },
         {
           key: 'monthly_performance',
@@ -173,13 +172,58 @@ export class CompaniesService {
           sort_order: 1500,
           is_default: false,
           stage_type: 'system',
+          role: 'telecaller',
+        },
+
+        // Receptionist Stages
+        {
+          key: 'walk_in',
+          name: 'Walk-in',
+          sort_order: 1100,
+          is_default: false,
+          stage_type: 'positive',
+          role: 'receptionist',
+        },
+
+        // Counsellor Stages
+        {
+          key: 'new_query',
+          name: 'New Query',
+          sort_order: 100,
+          is_default: false,
+          stage_type: 'neutral',
+          role: 'counsellor',
+        },
+        {
+          key: 'interested',
+          name: 'Interested',
+          sort_order: 200,
+          is_default: false,
+          stage_type: 'positive',
+          role: 'counsellor',
+        },
+        {
+          key: 'cold',
+          name: 'Cold',
+          sort_order: 300,
+          is_default: false,
+          stage_type: 'negative',
+          role: 'counsellor',
+        },
+        {
+          key: 'enrolled',
+          name: 'Enrolled',
+          sort_order: 400,
+          is_default: false,
+          stage_type: 'positive',
+          role: 'counsellor',
         },
       ];
 
       for (const stage of defaultStages) {
         await client.query(
-          `INSERT INTO ${TableConstants.STAGES} (company_id, key, name, sort_order, is_default, stage_type)
-           VALUES ($1, $2, $3, $4, $5, $6)`,
+          `INSERT INTO ${TableConstants.STAGES} (company_id, key, name, sort_order, is_default, stage_type, role)
+           VALUES ($1, $2, $3, $4, $5, $6, $7)`,
           [
             companyId,
             stage.key,
@@ -187,6 +231,7 @@ export class CompaniesService {
             stage.sort_order,
             stage.is_default,
             stage.stage_type,
+            stage.role,
           ],
         );
       }

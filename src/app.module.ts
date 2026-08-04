@@ -17,6 +17,7 @@ import { RolePermissionsModule } from './role-permissions/role-permissions.modul
 import { CallsModule } from './calls/calls.module';
 import { ErrorModule } from './common/error/error.module';
 import { AppointmentsModule } from './appointments/appointments.module';
+import { EnrollmentsModule } from './enrollments/enrollments.module';
 
 @Module({
   imports: [
@@ -36,6 +37,7 @@ import { AppointmentsModule } from './appointments/appointments.module';
     RolePermissionsModule,
     CallsModule,
     AppointmentsModule,
+    EnrollmentsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
