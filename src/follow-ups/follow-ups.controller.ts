@@ -48,10 +48,15 @@ export class FollowUpsController {
     @CurrentUser() user: any,
   ) {
     try {
-      const data = await this.followUpsService.getFollowUps(
-        user.company_id || '00000000-0000-0000-0000-000000000000',
-        filter,
-      );
+      const companyId = user.company_id || '00000000-0000-0000-0000-000000000000';
+      const data = user.role
+        ? await this.followUpsService.getFollowUps(
+            companyId,
+            filter,
+            user.userId,
+            user.role,
+          )
+        : await this.followUpsService.getFollowUps(companyId, filter);
       return { status: 200, data };
     } catch (error: any) {
       this.errorService.errorThrower(error.status || 500, {

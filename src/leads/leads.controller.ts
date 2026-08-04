@@ -73,7 +73,7 @@ export class LeadsController {
     @Query('filter') filter: string,
     @Query('search') search: string,
     @Query('tab') tab: string,
-    @CurrentUser() user: any,
+    @CurrentUser() user: any = {},
   ) {
     try {
       const leadsData = await this.leadsService.getLeads(
@@ -81,6 +81,7 @@ export class LeadsController {
         search,
         tab,
         user.role,
+        user.userId,
       );
       return { status: 200, ...leadsData };
     } catch (error: any) {
@@ -133,6 +134,8 @@ export class LeadsController {
         body.remark,
         body.subStatus,
         body.counselorId,
+        user.role,
+        body.metadata,
       );
       return { status: 200, ...result };
     } catch (error: any) {
@@ -199,14 +202,45 @@ export class LeadsController {
     }
   }
 
+  @Get(':id/activity')
+  async getLeadActivity(
+    @Param('id') id: string,
+    @CurrentUser() user: any,
+  ) {
+    try {
+      const activity = await this.leadsService.getLeadActivity(
+        id,
+        user.company_id || '00000000-0000-0000-0000-000000000000',
+      );
+      return { status: 200, data: activity };
+    } catch (error: any) {
+      this.errorService.errorThrower(error.status || 500, {
+        message: error.message,
+        details: error,
+      });
+    }
+  }
+
   @Get(':id')
-  async getLeadById(@Param('id') id: string) {
+  async getLeadById(
+    @Param('id') id: string,
+    @CurrentUser() user: any = {},
+  ) {
     try {
       const data = await this.leadsService.getLeadById(id);
       if (!data) {
         this.errorService.errorThrower(404, {
           message: `Lead with ID ${id} not found`,
         });
+      }
+      const getActivity = (this.leadsService as any).getLeadActivity;
+      if (typeof getActivity === 'function') {
+        const activity = await getActivity.call(
+          this.leadsService,
+          id,
+          user.company_id || '00000000-0000-0000-0000-000000000000',
+        );
+        return { status: 200, data: { ...data, activity } };
       }
       return { status: 200, data };
     } catch (error: any) {

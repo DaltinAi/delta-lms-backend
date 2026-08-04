@@ -58,7 +58,7 @@ describe('DashboardController', () => {
         '2026-07-17',
         mockAdminUser,
       );
-      expect(result).toEqual(mockStats);
+      expect(result).toEqual({ status: 200, data: mockStats });
       expect(mockDashboardService.getStats).toHaveBeenCalledWith(
         'cid-1',
         'uid-admin',
@@ -79,7 +79,7 @@ describe('DashboardController', () => {
         undefined as any,
         mockTelecallerUser,
       );
-      expect(result.totalLeads).toBe(10);
+      expect(result.data.totalLeads).toBe(10);
       expect(mockDashboardService.getStats).toHaveBeenCalledWith(
         'cid-1',
         'uid-tc',

@@ -13,4 +13,5 @@ export const TableConstants = {
   PASSWORD_RESETS: 'password_resets_delta',
   USER_INVITATIONS: 'user_invitations_delta',
   APPOINTMENTS: 'appointments_delta',
+  ENROLLMENTS: 'enrollments_delta',
 };

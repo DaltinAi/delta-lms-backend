@@ -3,6 +3,7 @@ import { DbService } from '../db/db.service';
 import { UsersService } from '../users/users.service';
 import { TableConstants } from '../utils/table-constants';
 import { ErrorService } from '../common/error/error.service';
+import { getIvrDb } from '../utils/ivr-firebase';
 
 @Injectable()
 export class LeadsService {
@@ -203,11 +204,16 @@ export class LeadsService {
     remark?: string,
     subStatus?: string,
     counselorId?: string,
+    userRole?: string,
+    metadata?: Record<string, unknown>,
   ) {
     return this.dbService.transaction(async (client) => {
       // 1. Get the current lead to verify it exists and belongs to the company
       const leadResult = await client.query(
-        `SELECT id, current_stage_id, data FROM ${TableConstants.LEADS} WHERE id = $1 AND company_id = $2 AND is_deleted = false FOR UPDATE`,
+        `SELECT l.id, l.current_stage_id, l.data, LOWER(s.key) AS current_stage_key
+         FROM ${TableConstants.LEADS} l
+         LEFT JOIN ${TableConstants.STAGES} s ON s.id = l.current_stage_id
+         WHERE l.id = $1 AND l.company_id = $2 AND l.is_deleted = false FOR UPDATE OF l`,
         [id, companyId],
       );
 
@@ -219,17 +225,103 @@ export class LeadsService {
 
       // Resolve stage key if toStageId is not a UUID
       let targetStageId = toStageId;
+      const requestedStageKey = toStageId.trim().toLowerCase();
+      const metadataAction = String(
+        metadata?.action ?? metadata?.type ?? metadata?.event ?? '',
+      ).toLowerCase();
+      let isReopen =
+        ['reopen', 're-open', 'reopened'].includes(requestedStageKey) ||
+        metadata?.reopen === true ||
+        metadataAction.includes('reopen');
       const isUuid =
         /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(
           toStageId,
         );
-      if (!isUuid) {
+      if (isReopen) {
+        const role = userRole?.toLowerCase();
+        const reopenStageKey =
+          role === 'counsellor'
+            ? 'new_query'
+            : role === 'receptionist'
+              ? 'walk_in'
+              : 'new';
+        const reopenStageRole =
+          role === 'counsellor' || role === 'receptionist'
+            ? role
+            : role === 'telecaller' || role === 'agent'
+              ? 'telecaller'
+              : null;
+        const reopenStageRes = await client.query(
+          `SELECT id FROM ${TableConstants.STAGES}
+           WHERE company_id = $1 AND LOWER(key) = $2
+             AND ($3::text IS NULL OR LOWER(role) = $3)
+           ORDER BY is_default DESC
+           LIMIT 1`,
+          [companyId, reopenStageKey, reopenStageRole],
+        );
+        if (reopenStageRes.rows.length > 0) {
+          targetStageId = reopenStageRes.rows[0].id;
+        }
+      } else if (!isUuid) {
         const stageRes = await client.query(
           `SELECT id FROM ${TableConstants.STAGES} WHERE company_id = $1 AND (LOWER(key) = $2 OR LOWER(name) ILIKE $3) LIMIT 1`,
-          [companyId, toStageId.toLowerCase(), `%${toStageId.toLowerCase()}%`],
+          [companyId, requestedStageKey, `%${requestedStageKey}%`],
         );
         if (stageRes.rows.length > 0) {
           targetStageId = stageRes.rows[0].id;
+        }
+      }
+
+      // Some clients historically sent the Pending stage ID for the Cold
+      // lead "Reopen" action. Interpret only that Cold -> Pending transition
+      // as reopen; regular Pending moves from other stages are unchanged.
+      if (!isReopen && ['cold', 'not_interested'].includes(lead.current_stage_key)) {
+        const targetStageResult = await client.query(
+          `SELECT LOWER(key) AS key FROM ${TableConstants.STAGES}
+           WHERE id = $1 AND company_id = $2 LIMIT 1`,
+          [targetStageId, companyId],
+        );
+        if (targetStageResult.rows[0]?.key === 'pending') {
+          isReopen = true;
+          const role = userRole?.toLowerCase();
+          const reopenStageKey = role === 'counsellor' ? 'new_query' : role === 'receptionist' ? 'walk_in' : 'new';
+          const reopenStageRole = role === 'counsellor' || role === 'receptionist' ? role : role === 'telecaller' || role === 'agent' ? 'telecaller' : null;
+          const reopenStageResult = await client.query(
+            `SELECT id FROM ${TableConstants.STAGES}
+             WHERE company_id = $1 AND LOWER(key) = $2
+               AND ($3::text IS NULL OR LOWER(role) = $3)
+             ORDER BY is_default DESC LIMIT 1`,
+            [companyId, reopenStageKey, reopenStageRole],
+          );
+          if (reopenStageResult.rows.length > 0) {
+            targetStageId = reopenStageResult.rows[0].id;
+          }
+        }
+      }
+
+      // Telecaller and counsellor workflows share keys such as Interested
+      // and Cold. If a duplicate counsellor stage was submitted, resolve the
+      // matching telecaller stage before persisting the lead.
+      if (['telecaller', 'agent'].includes(userRole?.toLowerCase() || '')) {
+        const telecallerStageRes = await client.query(
+          `SELECT telecaller_stage.id
+           FROM ${TableConstants.STAGES} selected_stage
+           JOIN ${TableConstants.STAGES} telecaller_stage
+             ON telecaller_stage.company_id = selected_stage.company_id
+            AND (
+              LOWER(telecaller_stage.key) = LOWER(selected_stage.key)
+              OR (
+                LOWER(selected_stage.key) = 'cold'
+                AND LOWER(telecaller_stage.key) = 'not_interested'
+              )
+            )
+            AND LOWER(telecaller_stage.role) = 'telecaller'
+           WHERE selected_stage.id = $1
+           LIMIT 1`,
+          [targetStageId],
+        );
+        if (telecallerStageRes.rows.length > 0) {
+          targetStageId = telecallerStageRes.rows[0].id;
         }
       }
 
@@ -267,8 +359,8 @@ export class LeadsService {
       // 4. Log the stage history
       await client.query(
         `INSERT INTO ${TableConstants.LEAD_STAGE_HISTORY}
-         (lead_id, company_id, from_stage_id, to_stage_id, changed_by, remark)
-         VALUES ($1, $2, $3, $4, $5, $6)`,
+         (lead_id, company_id, from_stage_id, to_stage_id, changed_by, remark, metadata)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
         [
           id,
           companyId,
@@ -276,6 +368,7 @@ export class LeadsService {
           targetStageId,
           userId,
           remark || null,
+          metadata || {},
         ],
       );
 
@@ -462,9 +555,16 @@ export class LeadsService {
     searchStr?: string,
     tabStr?: string,
     userRole?: string,
-  ): Promise<{ data: any[]; total: number }> {
+    userId?: string,
+  ): Promise<{
+    data: any[];
+    total: number;
+    todayCount?: number;
+    nextDayCount?: number;
+  }> {
     let limit = 10;
     let offset = 0;
+    let pendingTab: string | null = null;
     const filterClauses: string[] = ['l.is_deleted = false'];
     const values: any[] = [];
     let idx = 1;
@@ -473,10 +573,20 @@ export class LeadsService {
 
     if (userRole && userRole.toLowerCase() !== 'admin') {
       joinStages = true;
-      if (userRole.toLowerCase() === 'counsellor') {
-        filterClauses.push(`LOWER(s.role) IN ('counsellor', 'receptionist')`);
+      const roleParam = `$${idx++}`;
+      if (userId) {
+        if (userRole.toLowerCase() === 'receptionist') {
+          filterClauses.push(
+            `(l.created_by = ${roleParam} OR LOWER(s.key) ILIKE '%walk%' OR LOWER(s.name) ILIKE '%walk%')`,
+          );
+        } else {
+          filterClauses.push(
+            `(l.created_by = ${roleParam} OR l.assigned_to = ${roleParam})`,
+          );
+        }
+        values.push(userId);
       } else {
-        filterClauses.push(`LOWER(s.role) = $${idx++}`);
+        filterClauses.push(`LOWER(s.role) = ${roleParam}`);
         values.push(userRole.toLowerCase());
       }
     }
@@ -494,8 +604,36 @@ export class LeadsService {
           filterClauses.push(`l.current_stage_id = $${idx++}`);
           values.push(val);
         } else if (k === 'stageType') {
-          filterClauses.push(`s.key = $${idx++}`);
-          values.push(val);
+          const normalizedStageType = val.trim().toLowerCase();
+          const isCounsellor = userRole?.toLowerCase() === 'counsellor';
+          const isReceptionist = userRole?.toLowerCase() === 'receptionist';
+          const stageTypeAliases: Record<string, string[]> = {
+            new: isCounsellor ? ['new_query'] : isReceptionist ? ['walk_in'] : ['new'],
+            pending: ['pending'],
+            interested: ['interested'],
+            cold: isCounsellor ? ['cold'] : ['not_interested'],
+          };
+          const matchingStageKeys = stageTypeAliases[normalizedStageType] || [
+            normalizedStageType,
+          ];
+          const stageKeyPlaceholders = matchingStageKeys.map(() => `$${idx++}`);
+          values.push(...matchingStageKeys);
+          const stageNameClauses: Record<string, string> = {
+            new: `(LOWER(s.name) ILIKE '%new%' OR LOWER(s.name) ILIKE '%walk%')`,
+            interested: `LOWER(s.name) ILIKE '%interested%'`,
+            cold: `(LOWER(s.name) ILIKE '%cold%' OR LOWER(s.name) ILIKE '%not interested%')`,
+          };
+          const stageNameClause = stageNameClauses[normalizedStageType];
+          const stageRole =
+            userRole?.toLowerCase() === 'agent'
+              ? 'telecaller'
+              : userRole?.toLowerCase();
+          const rolePlaceholder =
+            stageRole && stageRole !== 'admin' ? `$${idx++}` : null;
+          if (rolePlaceholder) values.push(stageRole);
+          filterClauses.push(
+            `((LOWER(s.key) IN (${stageKeyPlaceholders.join(', ')})${stageNameClause ? ` OR ${stageNameClause}` : ''})${rolePlaceholder ? ` AND LOWER(s.role) = ${rolePlaceholder}` : ''})`,
+          );
           joinStages = true;
         } else if (k === 'startDate') {
           filterClauses.push(`l.created_at >= $${idx++}`);
@@ -509,8 +647,36 @@ export class LeadsService {
         } else if (k === 'country' || k === 'interestedCountry') {
           filterClauses.push(`l.data->>'country' = $${idx++}`);
           values.push(val);
+        } else if (k === 'tab') {
+          pendingTab = val.toLowerCase();
         }
       }
+    }
+
+    const pendingCountFilterClauses = [...filterClauses];
+
+    const pendingDateExpression = `COALESCE(
+      (
+        SELECT MAX(lsh_pending_date.created_at)
+        FROM ${TableConstants.LEAD_STAGE_HISTORY} lsh_pending_date
+        JOIN ${TableConstants.STAGES} pending_stage_date
+          ON pending_stage_date.id = lsh_pending_date.to_stage_id
+        WHERE lsh_pending_date.lead_id = l.id
+          AND LOWER(pending_stage_date.key) = 'pending'
+      ),
+      l.updated_at,
+      l.created_at
+    )`;
+
+    if (pendingTab === 'today') {
+      filterClauses.push(`(
+        ${pendingDateExpression} >= CURRENT_DATE
+        AND ${pendingDateExpression} < CURRENT_DATE + INTERVAL '1 day'
+      )`);
+    } else if (pendingTab === 'nextday' || pendingTab === 'comingup') {
+      filterClauses.push(`(
+        ${pendingDateExpression} < CURRENT_DATE
+      )`);
     }
 
     if (tabStr) {
@@ -571,6 +737,36 @@ export class LeadsService {
       // Strip total_count from returned rows so it doesn't leak into the response
       const data = result.rows.map(({ total_count, ...row }) => row);
 
+      if (pendingTab === 'today' || pendingTab === 'nextday' || pendingTab === 'comingup') {
+        let countQuery = `
+          SELECT
+            COUNT(*) FILTER (WHERE ${pendingDateExpression} >= CURRENT_DATE
+              AND ${pendingDateExpression} < CURRENT_DATE + INTERVAL '1 day')::int AS today_count,
+            COUNT(*) FILTER (WHERE ${pendingDateExpression} < CURRENT_DATE)::int AS next_day_count
+          FROM ${TableConstants.LEADS} l
+        `;
+
+        if (joinStages) {
+          countQuery += ` LEFT JOIN ${TableConstants.STAGES} s ON l.current_stage_id = s.id`;
+        }
+
+        countQuery += ` WHERE ${pendingCountFilterClauses.join(' AND ')}`;
+        // The count query does not include the data query's LIMIT/OFFSET
+        // placeholders, so do not pass those pagination values to Postgres.
+        const countResult = await this.dbService.query(
+          countQuery,
+          values.slice(0, -2),
+        );
+        const counts = countResult.rows[0] || {};
+
+        return {
+          data,
+          total,
+          todayCount: Number(counts.today_count || 0),
+          nextDayCount: Number(counts.next_day_count || 0),
+        };
+      }
+
       return { data, total };
     } catch (error) {
       console.error('[LeadsService] Error fetching leads:', error);
@@ -595,5 +791,142 @@ export class LeadsService {
       console.error('[LeadsService] Error fetching lead by id:', error);
       throw error;
     }
+  }
+
+  async getLeadActivity(leadId: string, companyId: string) {
+    const [historyResult, followUpsResult, visitsResult, appointmentsResult, enrollmentsResult] =
+      await Promise.all([
+        this.dbService.query(
+      `SELECT
+         h.id,
+         h.lead_id,
+         h.from_stage_id,
+         h.to_stage_id,
+         from_stage.key AS from_stage_key,
+         from_stage.name AS from_stage_name,
+         to_stage.key AS to_stage_key,
+         to_stage.name AS to_stage_name,
+         h.changed_by,
+         CONCAT_WS(' ', u.first_name, u.last_name) AS changed_by_name,
+         u.role AS changed_by_role,
+         h.remark,
+         h.metadata,
+         h.created_at,
+         CASE
+           WHEN h.remark = 'Lead Created' THEN 'created'
+           WHEN h.remark ILIKE '%assign%' THEN 'assignment'
+           WHEN h.to_stage_id IS NOT NULL THEN 'stage_change'
+           ELSE 'activity'
+         END AS activity_type
+       FROM ${TableConstants.LEAD_STAGE_HISTORY} h
+       LEFT JOIN ${TableConstants.STAGES} from_stage ON from_stage.id = h.from_stage_id
+       LEFT JOIN ${TableConstants.STAGES} to_stage ON to_stage.id = h.to_stage_id
+       LEFT JOIN ${TableConstants.USERS} u ON u.id = h.changed_by
+       WHERE h.lead_id = $1 AND h.company_id = $2
+       ORDER BY h.created_at DESC, h.id DESC`,
+      [leadId, companyId],
+        ),
+        this.dbService.query(
+          `SELECT id, lead_id, created_by, scheduled_for, mode, note, status,
+                  completed_at, created_at
+           FROM ${TableConstants.FOLLOW_UPS}
+           WHERE lead_id = $1 AND company_id = $2`,
+          [leadId, companyId],
+        ),
+        this.dbService.query(
+          `SELECT id, lead_id, created_by, visit_date, notes, created_at
+           FROM ${TableConstants.VISIT_HISTORY}
+           WHERE lead_id = $1 AND company_id = $2`,
+          [leadId, companyId],
+        ),
+        this.dbService.query(
+          `SELECT id, lead_id, created_by, handled_by, appointment_date,
+                  appointment_time, remark, status, created_at, updated_at
+           FROM ${TableConstants.APPOINTMENTS}
+           WHERE lead_id = $1 AND company_id = $2 AND is_deleted = false`,
+          [leadId, companyId],
+        ),
+        this.dbService.query(
+          `SELECT id, lead_id, counsellor_id, country, preferred_city,
+                  package_amount, advance_fee, metadata, created_at
+           FROM ${TableConstants.ENROLLMENTS}
+           WHERE lead_id = $1 AND company_id = $2`,
+          [leadId, companyId],
+        ),
+      ]);
+
+    const activity = [
+      ...historyResult.rows.map((row) => ({
+        ...row,
+        activity_at: row.created_at,
+      })),
+      ...followUpsResult.rows.map((row) => ({
+        id: `follow-up-${row.id}`,
+        activity_type: 'follow_up',
+        activity_at: row.scheduled_for || row.created_at,
+        created_at: row.created_at,
+        changed_by: row.created_by,
+        details: row,
+      })),
+      ...visitsResult.rows.map((row) => ({
+        id: `visit-${row.id}`,
+        activity_type: 'visit',
+        activity_at: row.visit_date || row.created_at,
+        created_at: row.created_at,
+        changed_by: row.created_by,
+        details: row,
+      })),
+      ...appointmentsResult.rows.map((row) => ({
+        id: `appointment-${row.id}`,
+        activity_type: 'appointment',
+        activity_at: row.created_at,
+        created_at: row.created_at,
+        changed_by: row.handled_by || row.created_by,
+        details: row,
+      })),
+      ...enrollmentsResult.rows.map((row) => ({
+        id: `enrollment-${row.id}`,
+        activity_type: 'enrollment',
+        activity_at: row.created_at,
+        created_at: row.created_at,
+        changed_by: row.counsellor_id,
+        details: row,
+      })),
+    ];
+
+    const ivrDb = getIvrDb();
+    if (ivrDb) {
+      try {
+        const callsSnapshot = await ivrDb
+          .collection('ivr')
+          .doc(companyId)
+          .collection('calls')
+          .where('leadId', '==', leadId)
+          .get();
+
+        for (const doc of callsSnapshot.docs) {
+          const call = doc.data() as Record<string, any>;
+          const initiatedAt = call.initiatedAt?.toDate?.() || call.initiatedAt;
+          activity.push({
+            id: `call-${doc.id}`,
+            activity_type: 'call',
+            activity_at: initiatedAt || call.createdAt || null,
+            created_at: initiatedAt || call.createdAt || null,
+            changed_by: call.userId || null,
+            details: { id: doc.id, ...call },
+          });
+        }
+      } catch (error) {
+        console.error('[LeadsService] Error fetching lead call activity:', error);
+      }
+    }
+
+    activity.sort(
+      (a, b) =>
+        new Date(b.activity_at || 0).getTime() -
+        new Date(a.activity_at || 0).getTime(),
+    );
+
+    return activity;
   }
 }

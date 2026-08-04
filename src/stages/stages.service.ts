@@ -43,11 +43,19 @@ export class StagesService {
     }
   }
 
-  async getStages(companyId: string) {
-    const result = await this.dbService.query(
-      `SELECT * FROM ${TableConstants.STAGES} WHERE company_id = $1 ORDER BY sort_order ASC`,
-      [companyId],
-    );
+  async getStages(companyId: string, role?: string) {
+    const params: any[] = [companyId];
+    let query = `SELECT * FROM ${TableConstants.STAGES} WHERE company_id = $1`;
+    const normalizedRole = role?.toLowerCase();
+
+    if (normalizedRole && normalizedRole !== 'admin') {
+      const stageRole = normalizedRole === 'agent' ? 'telecaller' : normalizedRole;
+      query += ` AND LOWER(role) = $2`;
+      params.push(stageRole);
+    }
+
+    query += ' ORDER BY sort_order ASC';
+    const result = await this.dbService.query(query, params);
     return result.rows;
   }
 }

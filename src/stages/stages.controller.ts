@@ -36,9 +36,10 @@ export class StagesController {
   @Get()
   async getStages(@CurrentUser() user: any) {
     try {
-      const data = await this.stagesService.getStages(
-        user.company_id || '00000000-0000-0000-0000-000000000000',
-      );
+      const companyId = user.company_id || '00000000-0000-0000-0000-000000000000';
+      const data = user.role && user.role.toLowerCase() !== 'admin'
+        ? await this.stagesService.getStages(companyId, user.role)
+        : await this.stagesService.getStages(companyId);
       return { status: 200, data };
     } catch (error: any) {
       this.errorService.errorThrower(error.status || 500, {

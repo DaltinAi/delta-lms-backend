@@ -115,6 +115,26 @@ describe('LeadsService', () => {
       const result = await service.getLeads('limit=25,offset=50');
       expect(result.total).toBe(100);
     });
+
+    it('should not pass pagination values to the pending count query', async () => {
+      mockDbQuery
+        .mockResolvedValueOnce({ rows: [{ id: 'l1', total_count: '1' }] })
+        .mockResolvedValueOnce({ rows: [{ today_count: 1, next_day_count: 0 }] });
+
+      await service.getLeads(
+        'limit=10,offset=0,tab=today,stageType=pending',
+        undefined,
+        undefined,
+        'telecaller',
+        'uid-telecaller',
+      );
+
+      expect(mockDbQuery).toHaveBeenNthCalledWith(
+        2,
+        expect.any(String),
+        ['uid-telecaller', 'pending', 'telecaller'],
+      );
+    });
   });
 
   // ─── getLeadById ─────────────────────────────────────────────────────────

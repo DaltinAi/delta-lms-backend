@@ -49,7 +49,12 @@ export class FollowUpsService {
     return result.rows[0];
   }
 
-  async getFollowUps(companyId: string, filterStr?: string) {
+  async getFollowUps(
+    companyId: string,
+    filterStr?: string,
+    requesterId?: string,
+    requesterRole?: string,
+  ) {
     let leadId: string | null = null;
     let userId: string | null = null;
     let startDate: string | null = null;
@@ -74,12 +79,18 @@ export class FollowUpsService {
 
     let query = `SELECT * FROM ${TableConstants.FOLLOW_UPS} WHERE company_id = $1`;
 
+    if (requesterId && requesterRole && requesterRole.toLowerCase() !== 'admin') {
+      query += ` AND created_by = $${paramIndex++}`;
+      params.push(requesterId);
+      userId = requesterId;
+    }
+
     if (leadId) {
       query += ` AND lead_id = $${paramIndex++}`;
       params.push(leadId);
     }
 
-    if (userId) {
+    if (userId && !(requesterId && requesterRole && requesterRole.toLowerCase() !== 'admin')) {
       query += ` AND created_by = $${paramIndex++}`;
       params.push(userId);
     }

@@ -18,6 +18,40 @@ export class DashboardService {
     endDate?: string,
   ) {
     const isAdmin = role === 'admin';
+    const normalizedRole = role?.toLowerCase();
+    const stageRole =
+      normalizedRole === 'agent' || normalizedRole === 'telecaller'
+        ? 'telecaller'
+        : normalizedRole;
+    const roleStageScope =
+      !isAdmin && stageRole
+        ? ` AND LOWER(s.role) = '${stageRole}'`
+        : '';
+    const newStageCondition = isAdmin
+      ? `(LOWER(s.key) IN ('new', 'walk_in') OR LOWER(s.name) ILIKE '%new%')`
+      : stageRole === 'counsellor'
+        ? `(LOWER(s.key) = 'new_query' OR LOWER(s.name) ILIKE '%new query%')`
+        : stageRole === 'receptionist'
+          ? `(LOWER(s.key) = 'walk_in' OR LOWER(s.name) ILIKE '%walk%')`
+          : `(LOWER(s.key) = 'new' OR LOWER(s.name) ILIKE '%new%')`;
+    const pendingStageCondition = isAdmin || stageRole === 'telecaller'
+      ? `LOWER(s.key) = 'pending'`
+      : 'FALSE';
+    const interestedStageCondition = isAdmin
+      ? `(LOWER(s.key) = 'interested' OR LOWER(s.name) ILIKE '%interested%')`
+      : `(LOWER(s.key) = 'interested' OR LOWER(s.name) ILIKE '%interested%')`;
+    const coldStageCondition = isAdmin
+      ? `(LOWER(s.key) IN ('not_interested', 'cold') OR LOWER(s.name) ILIKE '%cold%' OR LOWER(s.name) ILIKE '%not interested%')`
+      : stageRole === 'counsellor'
+        ? `(LOWER(s.key) = 'cold' OR LOWER(s.name) ILIKE '%cold%')`
+        : stageRole === 'telecaller'
+          ? `(LOWER(s.key) = 'not_interested' OR LOWER(s.name) ILIKE '%not interested%')`
+          : 'FALSE';
+    const convertedStageCondition = isAdmin
+      ? `(LOWER(s.key) IN ('enrolled', 'appointment', 'appointment_booked') OR LOWER(s.name) ILIKE '%booked%' OR LOWER(s.name) ILIKE '%enrolled%')`
+      : stageRole === 'counsellor'
+        ? `(LOWER(s.key) = 'enrolled' OR LOWER(s.name) ILIKE '%enrolled%')`
+        : `(LOWER(s.key) IN ('appointment', 'appointment_booked') OR LOWER(s.name) ILIKE '%booked%')`;
     let baseConditions = 'l.company_id = $1 AND l.is_deleted = false';
     const queryParams: any[] = [companyId];
     let paramIndex = 2;
@@ -48,14 +82,14 @@ export class DashboardService {
     const totalLeadsQuery = `
       SELECT 
         COUNT(*) as count,
-        SUM(CASE WHEN LOWER(s.key) IN ('new', 'walk_in') OR LOWER(s.name) ILIKE '%new%' THEN 1 ELSE 0 END)::int as new_leads,
-        SUM(CASE WHEN LOWER(s.key) = 'pending' THEN 1 ELSE 0 END)::int as pending_leads,
-        SUM(CASE WHEN LOWER(s.key) = 'interested' OR LOWER(s.name) ILIKE '%interested%' THEN 1 ELSE 0 END)::int as interested_leads,
-        SUM(CASE WHEN LOWER(s.key) IN ('not_interested', 'cold') OR LOWER(s.name) ILIKE '%cold%' OR LOWER(s.name) ILIKE '%not interested%' THEN 1 ELSE 0 END)::int as cold_leads,
-        SUM(CASE WHEN LOWER(s.key) IN ('enrolled', 'appointment', 'appointment_booked') OR LOWER(s.name) ILIKE '%booked%' OR LOWER(s.name) ILIKE '%enrolled%' THEN 1 ELSE 0 END)::int as converted_leads
+        SUM(CASE WHEN ${newStageCondition} THEN 1 ELSE 0 END)::int as new_leads,
+        SUM(CASE WHEN ${pendingStageCondition} THEN 1 ELSE 0 END)::int as pending_leads,
+        SUM(CASE WHEN ${interestedStageCondition} THEN 1 ELSE 0 END)::int as interested_leads,
+        SUM(CASE WHEN ${coldStageCondition} THEN 1 ELSE 0 END)::int as cold_leads,
+        SUM(CASE WHEN ${convertedStageCondition} THEN 1 ELSE 0 END)::int as converted_leads
       FROM ${TableConstants.LEADS} l
       LEFT JOIN ${TableConstants.STAGES} s ON l.current_stage_id = s.id
-      WHERE ${baseConditions}${roleCondition}
+      WHERE ${baseConditions}${roleCondition}${roleStageScope}
     `;
     const totalResult = await this.dbService.query(
       totalLeadsQuery,
@@ -74,7 +108,7 @@ export class DashboardService {
       SELECT COUNT(*)::int as count
       FROM ${TableConstants.FOLLOW_UPS} fu
       WHERE fu.company_id = $1 AND fu.created_by = $2 AND fu.status = 'pending'
-        AND fu.follow_up_date = CURRENT_DATE
+        AND DATE(fu.scheduled_for) = CURRENT_DATE
     `;
     const followUpsResult = await this.dbService.query(followUpsQuery, [
       companyId,

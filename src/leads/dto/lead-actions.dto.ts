@@ -4,6 +4,7 @@ import {
   IsString,
   IsUUID,
   IsOptional,
+  IsObject,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
@@ -44,4 +45,12 @@ export class UpdateLeadStageDto {
   @IsUUID()
   @IsOptional()
   counselorId?: string;
+
+  @ApiPropertyOptional({
+    description: 'Optional metadata associated with the stage transition',
+    type: Object,
+  })
+  @IsObject()
+  @IsOptional()
+  metadata?: Record<string, unknown>;
 }

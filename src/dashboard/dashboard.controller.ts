@@ -26,7 +26,7 @@ export class DashboardController {
         startDate,
         endDate,
       );
-      return stats;
+      return { status: 200, data: stats };
     } catch (error: any) {
       this.errorService.errorThrower(error.status || 500, {
         message: error.message,
