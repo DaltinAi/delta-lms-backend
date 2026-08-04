@@ -142,9 +142,18 @@ export class LeadsController {
           message: 'phone query parameter is required',
         });
       }
+
+      const cleanPhone = phone.replace(/\D/g, '');
+      if (cleanPhone.length < 10) {
+        this.errorService.errorThrower(400, {
+          message: 'Phone number must have at least 10 digits',
+        });
+      }
+      const last10Digits = cleanPhone.slice(-10);
+
       const result = await this.leadsService.checkPhoneExists(
         user.company_id || '00000000-0000-0000-0000-000000000000',
-        phone,
+        last10Digits,
       );
       return { status: 200, ...result };
     } catch (error: any) {

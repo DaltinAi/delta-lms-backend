@@ -312,13 +312,13 @@ export class LeadsService {
    */
   async checkPhoneExists(
     companyId: string,
-    phone: string,
+    phoneLast10: string,
   ): Promise<{ exists: boolean; leadId?: string; name?: string }> {
     try {
       const result = await this.dbService.query(
         `SELECT id, first_name, last_name FROM ${TableConstants.LEADS}
-         WHERE company_id = $1 AND phone = $2 AND is_deleted = false LIMIT 1`,
-        [companyId, phone],
+         WHERE company_id = $1 AND RIGHT(REGEXP_REPLACE(phone, '[^0-9]', '', 'g'), 10) = $2 AND is_deleted = false LIMIT 1`,
+        [companyId, phoneLast10],
       );
 
       if (result.rows.length === 0) {
