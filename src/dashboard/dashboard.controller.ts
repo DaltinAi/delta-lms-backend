@@ -34,4 +34,19 @@ export class DashboardController {
       });
     }
   }
+
+  @Get('receptionist-stats')
+  async getReceptionistStats(@CurrentUser() user: any) {
+    try {
+      const stats = await this.dashboardService.getReceptionistStats(
+        user.company_id || '00000000-0000-0000-0000-000000000000',
+      );
+      return { status: 200, data: stats };
+    } catch (error: any) {
+      this.errorService.errorThrower(error.status || 500, {
+        message: error.message,
+        details: error,
+      });
+    }
+  }
 }

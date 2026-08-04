@@ -67,6 +67,8 @@ export class AppointmentsController {
       const user = req.user;
       const appointmentsData = await this.appointmentsService.findAll(
         user.company_id,
+        user.userId,
+        user.role,
         limit ? +limit : 10,
         offset ? +offset : 0,
         tab,

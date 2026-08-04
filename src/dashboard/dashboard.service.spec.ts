@@ -33,6 +33,7 @@ describe('DashboardService', () => {
 
   describe('getStats()', () => {
     const totalCountRow = { rows: [{ count: '42' }] };
+    const followUpRow = { rows: [{ count: '5' }] };
     const countryRow = {
       rows: [
         { country: 'India', count: '30' },
@@ -46,6 +47,7 @@ describe('DashboardService', () => {
     it('should return stats for admin (no user filter applied)', async () => {
       mockDbQuery
         .mockResolvedValueOnce(totalCountRow)
+        .mockResolvedValueOnce(followUpRow)
         .mockResolvedValueOnce(countryRow)
         .mockResolvedValueOnce(branchRow);
 
@@ -59,6 +61,7 @@ describe('DashboardService', () => {
     it('should apply created_by filter for non-admin roles', async () => {
       mockDbQuery
         .mockResolvedValueOnce(totalCountRow)
+        .mockResolvedValueOnce(followUpRow)
         .mockResolvedValueOnce(countryRow)
         .mockResolvedValueOnce(branchRow);
 
@@ -72,6 +75,7 @@ describe('DashboardService', () => {
     it('should apply date range filters when provided', async () => {
       mockDbQuery
         .mockResolvedValueOnce(totalCountRow)
+        .mockResolvedValueOnce(followUpRow)
         .mockResolvedValueOnce(countryRow)
         .mockResolvedValueOnce(branchRow);
 
@@ -90,6 +94,7 @@ describe('DashboardService', () => {
 
       mockDbQuery
         .mockResolvedValueOnce(totalCountRow)
+        .mockResolvedValueOnce(followUpRow)
         .mockResolvedValueOnce({ rows: manyCountries })
         .mockResolvedValueOnce(branchRow);
 
@@ -102,6 +107,7 @@ describe('DashboardService', () => {
     it('should apply walk-in stage filter for receptionist role', async () => {
       mockDbQuery
         .mockResolvedValueOnce(totalCountRow)
+        .mockResolvedValueOnce(followUpRow)
         .mockResolvedValueOnce(countryRow)
         .mockResolvedValueOnce(branchRow);
 

@@ -1,4 +1,4 @@
-import { Controller, Get, Param, UseGuards } from '@nestjs/common';
+import { Controller, Get, Param, UseGuards, Query, BadRequestException } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -48,9 +48,34 @@ export class UsersController {
     }
   }
 
+  @UseGuards(JwtAuthGuard)
+  @Get('by-role')
+  async getUsersByRole(@Query('role') role: string) {
+    try {
+      if (!role) {
+        this.errorService.errorThrower(400, {
+          message: 'role query parameter is required',
+        });
+      }
+      const users = await this.usersService.getUsersByRole(role);
+      return { status: 200, data: users };
+    } catch (error: any) {
+      this.errorService.errorThrower(error.status || 500, {
+        message: error.message,
+        details: error,
+      });
+    }
+  }
+
   @Get(':id')
   async getUserById(@Param('id') id: string) {
     try {
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (!uuidRegex.test(id)) {
+        this.errorService.errorThrower(400, {
+          message: `Invalid UUID format: ${id}`,
+        });
+      }
       const user = await this.usersService.getUserById(id);
       if (!user) {
         this.errorService.errorThrower(404, {

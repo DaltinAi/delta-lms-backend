@@ -47,8 +47,9 @@ describe('LeadsService', () => {
 
   describe('checkPhoneExists()', () => {
     it('should return exists: true with leadId and name when phone found', async () => {
+      const mockLead = { id: 'lead-1', first_name: 'John', last_name: 'Doe' };
       mockDbQuery.mockResolvedValueOnce({
-        rows: [{ id: 'lead-1', first_name: 'John', last_name: 'Doe' }],
+        rows: [mockLead],
       });
 
       const result = await service.checkPhoneExists('cid', '9876543210');
@@ -56,6 +57,7 @@ describe('LeadsService', () => {
         exists: true,
         leadId: 'lead-1',
         name: 'John Doe',
+        lead: mockLead,
       });
     });
 
@@ -166,26 +168,32 @@ describe('LeadsService', () => {
   describe('updateLead()', () => {
     it('should update and return the lead', async () => {
       const updated = { id: 'l1', first_name: 'Updated' };
-      mockDbQuery.mockResolvedValueOnce({ rows: [updated] });
+      mockDbTransaction.mockImplementationOnce(async (cb) =>
+        cb({ query: jest.fn().mockResolvedValueOnce({ rows: [updated] }) }),
+      );
 
       const result = await service.updateLead('l1', 'cid', {
         firstName: 'Updated',
-      });
+      }, 'uid');
       expect(result).toEqual(updated);
     });
 
     it('should return null when lead not found', async () => {
-      mockDbQuery.mockResolvedValueOnce({ rows: [] });
+      mockDbTransaction.mockImplementationOnce(async (cb) =>
+        cb({ query: jest.fn().mockResolvedValueOnce({ rows: [] }) }),
+      );
       const result = await service.updateLead('l1', 'cid', {
         firstName: 'X',
-      });
+      }, 'uid');
       expect(result).toBeNull();
     });
 
     it('should call getLeadById when no fields provided', async () => {
       const lead = { id: 'l1' };
-      mockDbQuery.mockResolvedValueOnce({ rows: [lead] });
-      const result = await service.updateLead('l1', 'cid', {});
+      mockDbTransaction.mockImplementationOnce(async (cb) =>
+        cb({ query: jest.fn().mockResolvedValueOnce({ rows: [lead] }) }),
+      );
+      const result = await service.updateLead('l1', 'cid', {}, 'uid');
       expect(result).toEqual(lead);
     });
   });

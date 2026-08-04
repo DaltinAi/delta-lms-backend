@@ -76,16 +76,18 @@ describe('UsersController', () => {
 
   describe('getUserById()', () => {
     it('should return a user by ID', async () => {
-      const user = { id: 'uid-1', email: 'u@x.com' };
+      const validId = '123e4567-e89b-12d3-a456-426614174000';
+      const user = { id: validId, email: 'u@x.com' };
       mockUsersService.getUserById.mockResolvedValueOnce(user);
 
-      const result = await controller.getUserById('uid-1');
+      const result = await controller.getUserById(validId);
       expect(result).toEqual({ status: 200, data: user });
     });
 
     it('should throw 404 when user not found', async () => {
+      const validMissingId = '987e6543-e89b-12d3-a456-426614174000';
       mockUsersService.getUserById.mockResolvedValueOnce(null);
-      await expect(controller.getUserById('missing-id')).rejects.toMatchObject({
+      await expect(controller.getUserById(validMissingId)).rejects.toMatchObject({
         status: 404,
       });
     });

@@ -29,12 +29,12 @@ export class RegisterDto {
 
   @ApiProperty({
     description: 'User role',
-    enum: ['Telecaller', 'Receptionist', 'Counsellor', 'Admissions', 'Admin'],
+    enum: ['telecaller', 'receptionist', 'counsellor', 'admissions', 'admin'],
   })
   @IsNotEmpty({ message: 'Role is required' })
-  @IsIn(['Telecaller', 'Receptionist', 'Counsellor', 'Admissions', 'Admin'], {
+  @IsIn(['telecaller', 'receptionist', 'counsellor', 'admissions', 'admin'], {
     message:
-      'Role must be one of: Telecaller, Receptionist, Counsellor, Admissions, Admin',
+      'Role must be one of: telecaller, receptionist, counsellor, admissions, admin',
   })
   role: string;
 }

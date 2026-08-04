@@ -46,15 +46,32 @@ export class VisitHistoryService {
       }
     }
 
-    let query = `SELECT * FROM ${TableConstants.VISIT_HISTORY} WHERE company_id = $1`;
+    let query = `
+      SELECT 
+        v.*, 
+        l.first_name as "leadFirstName", 
+        l.last_name as "leadLastName", 
+        l.phone as "leadPhone",
+        l.data as "leadData",
+        u.first_name as "counselorFirstName",
+        u.last_name as "counselorLastName"
+      FROM ${TableConstants.VISIT_HISTORY} v
+      LEFT JOIN ${TableConstants.LEADS} l ON v.lead_id = l.id
+      LEFT JOIN ${TableConstants.USERS} u ON (
+        CASE WHEN l.data->>'counselorId' ~ '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$' 
+        THEN (l.data->>'counselorId')::uuid 
+        ELSE NULL END
+      ) = u.id
+      WHERE v.company_id = $1
+    `;
     const params: any[] = [companyId];
 
     if (leadId) {
       params.push(leadId);
-      query += ` AND lead_id = $2`;
+      query += ` AND v.lead_id = $2`;
     }
 
-    query += ` ORDER BY visit_date DESC LIMIT $${params.length + 1}`;
+    query += ` ORDER BY v.visit_date DESC LIMIT $${params.length + 1}`;
     params.push(limit);
 
     const result = await this.dbService.query(query, params);

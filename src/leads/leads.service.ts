@@ -62,8 +62,12 @@ export class LeadsService {
           ? defaultStageResult.rows[0].id
           : null;
 
-      // Assign to a telecaller
-      const assignedTo = await this.assignTeleCounsellorRoundRobin();
+      // Assign to specified counselor/telecaller or fallback to round-robin
+      const assignedTo =
+        (leadData as any).assignedTo ||
+        (leadData as any).assigned_to ||
+        leadData.data?.counselorId ||
+        (await this.assignTeleCounsellorRoundRobin());
 
       const insertResult = await client.query(
         `INSERT INTO ${TableConstants.LEADS} 
@@ -140,6 +144,14 @@ export class LeadsService {
         fields.push(`data = $${idx++}`);
         values.push(updateData.data);
       }
+      const targetAssignedTo =
+        (updateData as any).assignedTo ||
+        (updateData as any).assigned_to ||
+        updateData.data?.counselorId;
+      if (targetAssignedTo !== undefined && targetAssignedTo !== null) {
+        fields.push(`assigned_to = $${idx++}`);
+        values.push(targetAssignedTo);
+      }
 
       let updatedLead = null;
 
@@ -203,15 +215,28 @@ export class LeadsService {
 
       const lead = leadResult.rows[0];
 
+      // Resolve stage key if toStageId is not a UUID
+      let targetStageId = toStageId;
+      const isUuid = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(toStageId);
+      if (!isUuid) {
+        const stageRes = await client.query(
+          `SELECT id FROM ${TableConstants.STAGES} WHERE company_id = $1 AND (LOWER(key) = $2 OR LOWER(name) ILIKE $3) LIMIT 1`,
+          [companyId, toStageId.toLowerCase(), `%${toStageId.toLowerCase()}%`],
+        );
+        if (stageRes.rows.length > 0) {
+          targetStageId = stageRes.rows[0].id;
+        }
+      }
+
       // 2. Prevent redundant updates
-      if (lead.current_stage_id === toStageId) {
+      if (lead.current_stage_id === targetStageId) {
         return { message: 'Lead is already in this stage' };
       }
 
       // 3. Update the lead's current stage
       await client.query(
         `UPDATE ${TableConstants.LEADS} SET current_stage_id = $1, updated_at = NOW() WHERE id = $2`,
-        [toStageId, id],
+        [targetStageId, id],
       );
 
       // 4. Log the stage history
@@ -223,13 +248,78 @@ export class LeadsService {
           id,
           companyId,
           lead.current_stage_id,
-          toStageId,
+          targetStageId,
           userId,
           remark || null,
         ],
       );
 
       return { success: true, message: 'Stage updated successfully' };
+    });
+  }
+
+  /**
+   * Books / Enrolls a lead by updating data payload with booking information
+   * and setting current stage to Enrolled.
+   */
+  async bookLead(
+    id: string,
+    companyId: string,
+    userId: string,
+    bookingData: any,
+  ) {
+    return this.dbService.transaction(async (client) => {
+      // 1. Get current lead
+      const leadResult = await client.query(
+        `SELECT * FROM ${TableConstants.LEADS} WHERE id = $1 AND company_id = $2 AND is_deleted = false FOR UPDATE`,
+        [id, companyId],
+      );
+
+      if (leadResult.rows.length === 0) {
+        throw new Error('Lead not found or unauthorized');
+      }
+
+      const lead = leadResult.rows[0];
+      const existingData = lead.data || {};
+      const updatedData = {
+        ...existingData,
+        ...bookingData,
+        bookedAt: new Date().toISOString(),
+        bookedBy: userId,
+      };
+
+      // 2. Find 'enrolled' or 'appointment' stage ID
+      const stageRes = await client.query(
+        `SELECT id FROM ${TableConstants.STAGES} WHERE company_id = $1 AND (LOWER(key) IN ('enrolled', 'appointment') OR LOWER(name) ILIKE '%enrolled%') LIMIT 1`,
+        [companyId],
+      );
+      const enrolledStageId = stageRes.rows.length > 0 ? stageRes.rows[0].id : lead.current_stage_id;
+
+      // 3. Update lead data and stage
+      const updateResult = await client.query(
+        `UPDATE ${TableConstants.LEADS}
+         SET data = $1, current_stage_id = $2, updated_at = NOW()
+         WHERE id = $3 AND company_id = $4
+         RETURNING *`,
+        [updatedData, enrolledStageId, id, companyId],
+      );
+
+      // 4. Log stage history
+      await client.query(
+        `INSERT INTO ${TableConstants.LEAD_STAGE_HISTORY}
+         (lead_id, company_id, from_stage_id, to_stage_id, changed_by, remark)
+         VALUES ($1, $2, $3, $4, $5, $6)`,
+        [
+          id,
+          companyId,
+          lead.current_stage_id,
+          enrolledStageId,
+          userId,
+          'Lead Booked / Enrolled by Counsellor',
+        ],
+      );
+
+      return updateResult.rows[0];
     });
   }
 
@@ -313,10 +403,10 @@ export class LeadsService {
   async checkPhoneExists(
     companyId: string,
     phoneLast10: string,
-  ): Promise<{ exists: boolean; leadId?: string; name?: string }> {
+  ): Promise<{ exists: boolean; leadId?: string; name?: string; lead?: any }> {
     try {
       const result = await this.dbService.query(
-        `SELECT id, first_name, last_name FROM ${TableConstants.LEADS}
+        `SELECT * FROM ${TableConstants.LEADS}
          WHERE company_id = $1 AND RIGHT(REGEXP_REPLACE(phone, '[^0-9]', '', 'g'), 10) = $2 AND is_deleted = false LIMIT 1`,
         [companyId, phoneLast10],
       );
@@ -330,6 +420,7 @@ export class LeadsService {
         exists: true,
         leadId: lead.id,
         name: `${lead.first_name || ''} ${lead.last_name || ''}`.trim(),
+        lead,
       };
     } catch (error) {
       console.error('[LeadsService] Error checking phone existence:', error);
@@ -343,6 +434,7 @@ export class LeadsService {
   async getLeads(
     filterStr?: string,
     searchStr?: string,
+    tabStr?: string,
   ): Promise<{ data: any[]; total: number }> {
     let limit = 10;
     let offset = 0;
@@ -380,10 +472,21 @@ export class LeadsService {
         } else if (k === 'country' || k === 'interestedCountry') {
           filterClauses.push(`l.data->>'country' = $${idx++}`);
           values.push(val);
-        } else if (k === 'tab') {
-          // Additional logic for 'tab' can be placed here if needed.
-          // For now, stageType handles the primary filtering.
         }
+      }
+    }
+
+    if (tabStr) {
+      joinStages = true;
+      const tabVal = tabStr.toLowerCase();
+      if (tabVal === 'new') {
+        filterClauses.push(`(LOWER(s.key) IN ('new', 'walk_in') OR LOWER(s.name) ILIKE '%new%')`);
+      } else if (tabVal === 'interested') {
+        filterClauses.push(`(LOWER(s.key) = 'interested' OR LOWER(s.name) ILIKE '%interested%')`);
+      } else if (tabVal === 'booked' || tabVal === 'enrolled') {
+        filterClauses.push(`(LOWER(s.key) IN ('appointment', 'enrolled', 'appointment_booked') OR LOWER(s.name) ILIKE '%booked%' OR LOWER(s.name) ILIKE '%enrolled%')`);
+      } else if (tabVal === 'cold') {
+        filterClauses.push(`(LOWER(s.key) IN ('not_interested', 'cold') OR LOWER(s.name) ILIKE '%cold%' OR LOWER(s.name) ILIKE '%not interested%')`);
       }
     }
 

@@ -19,6 +19,12 @@ export class AppointmentsService {
   ) {
     try {
       return await this.dbService.transaction(async (client) => {
+        // Validate schedule: Mon-Sat, 10:00 AM - 06:00 PM
+        this.validateAppointmentSchedule(
+          createDto.appointmentDate,
+          createDto.appointmentTime,
+        );
+
         // 1. Verify lead exists and belongs to company
         const leadRes = await client.query(
           `SELECT id FROM ${TableConstants.LEADS} WHERE id = $1 AND company_id = $2 AND is_deleted = false`,
@@ -77,8 +83,39 @@ export class AppointmentsService {
     }
   }
 
+  private validateAppointmentSchedule(
+    appointmentDate: string,
+    appointmentTime: string,
+  ) {
+    const date = new Date(appointmentDate);
+    const dayOfWeek = date.getUTCDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+
+    if (dayOfWeek === 0) {
+      this.errorService.errorThrower(400, {
+        message: 'Appointments can only be booked from Monday to Saturday.',
+      });
+    }
+
+    const [hoursStr, minutesStr] = appointmentTime.split(':');
+    const hours = parseInt(hoursStr, 10);
+    const minutes = parseInt(minutesStr || '0', 10);
+    const totalMinutes = hours * 60 + minutes;
+
+    const startLimit = 10 * 60; // 10:00 AM (600 mins)
+    const endLimit = 18 * 60; // 06:00 PM (1080 mins)
+
+    if (totalMinutes < startLimit || totalMinutes > endLimit) {
+      this.errorService.errorThrower(400, {
+        message:
+          'Appointments can only be scheduled between 10:00 AM and 06:00 PM.',
+      });
+    }
+  }
+
   async findAll(
     companyId: string,
+    userId: string,
+    role: string,
     limit: number = 10,
     offset: number = 0,
     tab?: string,
@@ -89,6 +126,13 @@ export class AppointmentsService {
       let baseConditions = `a.company_id = $1 AND a.is_deleted = false`;
       const queryParams: any[] = [companyId];
       let paramIndex = 2;
+
+      // Telecaller Role Restriction: Only see appointments they created
+      if (role === 'telecaller') {
+        baseConditions += ` AND a.created_by = $${paramIndex}`;
+        queryParams.push(userId);
+        paramIndex++;
+      }
 
       let joinLeads = false;
 
@@ -112,8 +156,8 @@ export class AppointmentsService {
       // --- Query 1: Get Counts for All Tabs ---
       let countsQuery = `
         SELECT 
-          SUM(CASE WHEN a.appointment_date = CURRENT_DATE THEN 1 ELSE 0 END) AS today_count,
-          SUM(CASE WHEN a.appointment_date > CURRENT_DATE THEN 1 ELSE 0 END) AS coming_up_count,
+          SUM(CASE WHEN a.appointment_date = CURRENT_DATE AND a.status NOT IN ('COMPLETED', 'CANCELLED') THEN 1 ELSE 0 END) AS today_count,
+          SUM(CASE WHEN a.appointment_date > CURRENT_DATE AND a.status NOT IN ('COMPLETED', 'CANCELLED') THEN 1 ELSE 0 END) AS coming_up_count,
           SUM(CASE WHEN a.appointment_date < CURRENT_DATE AND a.status NOT IN ('COMPLETED', 'CANCELLED') THEN 1 ELSE 0 END) AS overdue_count
         FROM ${TableConstants.APPOINTMENTS} a
       `;
@@ -131,18 +175,31 @@ export class AppointmentsService {
 
       // --- Query 2: Get Paginated Data ---
       let dataConditions = baseConditions;
-      if (tab === 'Today') {
-        dataConditions += ` AND a.appointment_date = CURRENT_DATE`;
-      } else if (tab === 'ComingUp') {
-        dataConditions += ` AND a.appointment_date > CURRENT_DATE`;
-      } else if (tab === 'Overdue') {
+      if (tab === 'today') {
+        dataConditions += ` AND a.appointment_date = CURRENT_DATE AND a.status NOT IN ('COMPLETED', 'CANCELLED')`;
+      } else if (tab === 'comingUp') {
+        dataConditions += ` AND a.appointment_date > CURRENT_DATE AND a.status NOT IN ('COMPLETED', 'CANCELLED')`;
+      } else if (tab === 'overdue') {
         dataConditions += ` AND a.appointment_date < CURRENT_DATE AND a.status NOT IN ('COMPLETED', 'CANCELLED')`;
       }
 
       let query = `
-        SELECT a.*, l.first_name, l.last_name, l.phone, l.data as lead_data, COUNT(a.id) OVER() AS total_count
+        SELECT 
+          a.*, 
+          l.first_name, 
+          l.last_name, 
+          l.phone, 
+          l.email,
+          l.data as lead_data, 
+          s.name as stage_name,
+          s.key as stage_key,
+          u_tc.first_name as tc_first_name,
+          u_tc.last_name as tc_last_name,
+          COUNT(a.id) OVER() AS total_count
         FROM ${TableConstants.APPOINTMENTS} a
         JOIN ${TableConstants.LEADS} l ON a.lead_id = l.id
+        LEFT JOIN ${TableConstants.STAGES} s ON l.current_stage_id = s.id
+        LEFT JOIN ${TableConstants.USERS} u_tc ON a.created_by = u_tc.id
         WHERE ${dataConditions}
         ORDER BY a.appointment_date ASC, a.appointment_time ASC
         LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
@@ -209,6 +266,12 @@ export class AppointmentsService {
         }
 
         const existing = existingRes.rows[0];
+
+        const targetDate = updateDto.appointmentDate ?? existing.appointment_date;
+        const targetTime = updateDto.appointmentTime ?? existing.appointment_time;
+        if (updateDto.appointmentDate !== undefined || updateDto.appointmentTime !== undefined) {
+          this.validateAppointmentSchedule(targetDate, targetTime);
+        }
 
         // 2. Build update query
         const fields: string[] = [];

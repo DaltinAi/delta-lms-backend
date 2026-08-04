@@ -26,6 +26,26 @@ export class UsersService {
     }
   }
 
+  /**
+   * Returns an array of users who match the given role.
+   */
+  async getUsersByRole(role: string): Promise<any[]> {
+    try {
+      const users = await this.dbService.query(
+        `SELECT id, first_name, last_name FROM ${TableConstants.USERS} WHERE LOWER(role) = LOWER($1)`,
+        [role],
+      );
+
+      return users.rows.map((u) => ({
+        id: u.id,
+        name: `${u.first_name || ''} ${u.last_name || ''}`.trim(),
+      }));
+    } catch (error) {
+      console.error(`[UsersService] Error fetching users by role ${role}:`, error);
+      throw error;
+    }
+  }
+
   async getUserById(id: string): Promise<any> {
     try {
       const user = await this.dbService.query(

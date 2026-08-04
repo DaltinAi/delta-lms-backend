@@ -111,6 +111,18 @@ async function migrate() {
     `);
 
     await client.query(`
+      CREATE TABLE IF NOT EXISTS visit_history_delta (
+          id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+          lead_id UUID NOT NULL REFERENCES leads_delta(id) ON DELETE CASCADE,
+          company_id UUID NOT NULL REFERENCES companies_delta(id) ON DELETE CASCADE,
+          visit_date TIMESTAMPTZ NOT NULL,
+          notes TEXT,
+          created_by UUID REFERENCES users_delta(id),
+          created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+      );
+    `);
+
+    await client.query(`
       CREATE TABLE IF NOT EXISTS refresh_tokens_delta (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         token TEXT NOT NULL UNIQUE,

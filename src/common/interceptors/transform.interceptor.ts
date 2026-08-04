@@ -35,11 +35,13 @@ export class TransformInterceptor<T> implements NestInterceptor<
           'data' in data &&
           'status' in data
         ) {
+          const { status, message, data: innerData, ...rest } = data as any;
           return {
-            statusCode: data.status,
-            message: data.message || 'Success',
-            data: data.data,
+            statusCode: status,
+            message: message || 'Success',
+            data: innerData,
             timestamp: new Date().toISOString(),
+            ...rest,
           };
         }
 

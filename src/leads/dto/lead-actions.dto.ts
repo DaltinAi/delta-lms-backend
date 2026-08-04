@@ -21,8 +21,8 @@ export class ReassignLeadsDto {
 }
 
 export class UpdateLeadStageDto {
-  @ApiProperty({ description: 'ID of the new stage' })
-  @IsUUID()
+  @ApiProperty({ description: 'ID or name of the new stage' })
+  @IsString()
   @IsNotEmpty()
   toStageId: string;
 

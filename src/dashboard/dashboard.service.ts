@@ -39,7 +39,7 @@ export class DashboardService {
       if (role === 'receptionist') {
         roleCondition = ` AND (l.created_by = $${paramIndex} OR s.key ILIKE '%walk%')`;
       } else {
-        roleCondition = ` AND l.created_by = $${paramIndex}`;
+        roleCondition = ` AND (l.created_by = $${paramIndex} OR l.assigned_to = $${paramIndex})`;
       }
       queryParams.push(userId);
     }
@@ -48,11 +48,11 @@ export class DashboardService {
     const totalLeadsQuery = `
       SELECT 
         COUNT(*) as count,
-        SUM(CASE WHEN LOWER(s.key) = 'new' THEN 1 ELSE 0 END)::int as new_leads,
+        SUM(CASE WHEN LOWER(s.key) IN ('new', 'walk_in') OR LOWER(s.name) ILIKE '%new%' THEN 1 ELSE 0 END)::int as new_leads,
         SUM(CASE WHEN LOWER(s.key) = 'pending' THEN 1 ELSE 0 END)::int as pending_leads,
-        SUM(CASE WHEN LOWER(s.key) = 'interested' THEN 1 ELSE 0 END)::int as interested_leads,
-        SUM(CASE WHEN LOWER(s.key) = 'cold' THEN 1 ELSE 0 END)::int as cold_leads,
-        SUM(CASE WHEN LOWER(s.key) = 'enrolled' OR LOWER(s.key) = 'appointment_booked' OR s.key ILIKE '%appointment%' THEN 1 ELSE 0 END)::int as converted_leads
+        SUM(CASE WHEN LOWER(s.key) = 'interested' OR LOWER(s.name) ILIKE '%interested%' THEN 1 ELSE 0 END)::int as interested_leads,
+        SUM(CASE WHEN LOWER(s.key) IN ('not_interested', 'cold') OR LOWER(s.name) ILIKE '%cold%' OR LOWER(s.name) ILIKE '%not interested%' THEN 1 ELSE 0 END)::int as cold_leads,
+        SUM(CASE WHEN LOWER(s.key) IN ('enrolled', 'appointment', 'appointment_booked') OR LOWER(s.name) ILIKE '%booked%' OR LOWER(s.name) ILIKE '%enrolled%' THEN 1 ELSE 0 END)::int as converted_leads
       FROM ${TableConstants.LEADS} l
       LEFT JOIN ${TableConstants.STAGES} s ON l.current_stage_id = s.id
       WHERE ${baseConditions}${roleCondition}
@@ -166,5 +166,115 @@ export class DashboardService {
       todayFollowUps,
       appointmentBooked: convertedLeads,
     };
+  }
+
+  async getReceptionistStats(companyId: string) {
+    try {
+      // 1. Today's Appointments (a.appointment_date = CURRENT_DATE)
+      const todayApptResult = await this.dbService.query(
+        `SELECT COUNT(*)::int as count FROM ${TableConstants.APPOINTMENTS} 
+         WHERE company_id = $1 AND is_deleted = false AND appointment_date = CURRENT_DATE`,
+        [companyId]
+      );
+      const todayAppointments = todayApptResult.rows[0].count;
+
+      // 2. Upcoming 7 Days Appointments
+      const upcomingApptResult = await this.dbService.query(
+        `SELECT COUNT(*)::int as count FROM ${TableConstants.APPOINTMENTS} 
+         WHERE company_id = $1 AND is_deleted = false AND appointment_date > CURRENT_DATE AND appointment_date <= CURRENT_DATE + INTERVAL '7 days'`,
+        [companyId]
+      );
+      const upcomingAppointments = upcomingApptResult.rows[0].count;
+
+      // 3. Today's Walk-ins (v.visit_date = CURRENT_DATE)
+      const todayWalkinsResult = await this.dbService.query(
+        `SELECT COUNT(*)::int as count FROM ${TableConstants.VISIT_HISTORY} 
+         WHERE company_id = $1 AND DATE(visit_date) = CURRENT_DATE`,
+        [companyId]
+      );
+      const todayWalkins = todayWalkinsResult.rows[0].count;
+
+      // 4. Enrolled Today (leads in stage 'enrolled' or created today in 'enrolled' stage)
+      const enrolledTodayResult = await this.dbService.query(
+        `SELECT COUNT(*)::int as count FROM ${TableConstants.LEADS} l
+         JOIN ${TableConstants.STAGES} s ON l.current_stage_id = s.id
+         WHERE l.company_id = $1 AND l.is_deleted = false 
+           AND LOWER(s.key) = 'enrolled' AND DATE(l.updated_at) = CURRENT_DATE`,
+        [companyId]
+      );
+      const enrolledToday = enrolledTodayResult.rows[0].count;
+
+      // 5. Country breakdown (countries_interested or countries in l.data)
+      const countryResult = await this.dbService.query(
+        `SELECT 
+           country_item as country,
+           COUNT(*) as count
+         FROM ${TableConstants.LEADS} l,
+         LATERAL (
+           SELECT jsonb_array_elements_text(
+             CASE 
+               WHEN jsonb_typeof(l.data->'countries') = 'array' THEN l.data->'countries'
+               WHEN jsonb_typeof(l.data->'countries_interested') = 'array' THEN l.data->'countries_interested'
+               ELSE '[]'::jsonb
+             END
+           ) as country_item
+         ) countries
+         WHERE l.company_id = $1 AND l.is_deleted = false
+         GROUP BY country_item
+         ORDER BY count DESC`,
+        [companyId]
+      );
+      const countries = countryResult.rows.map(r => ({
+        name: r.country,
+        count: parseInt(r.count, 10)
+      }));
+
+      // 6. Visa types breakdown (from l.data->>'visaType')
+      const visaResult = await this.dbService.query(
+        `SELECT 
+           COALESCE(l.data->>'visaType', 'Unknown') as type,
+           COUNT(*) as count
+         FROM ${TableConstants.LEADS} l
+         WHERE l.company_id = $1 AND l.is_deleted = false
+         GROUP BY l.data->>'visaType'
+         ORDER BY count DESC`,
+        [companyId]
+      );
+      const visaTypes = visaResult.rows.map(r => ({
+        type: r.type,
+        count: parseInt(r.count, 10)
+      }));
+
+      // 7. Source breakdown (from l.data->>'sourceType')
+      const sourceResult = await this.dbService.query(
+        `SELECT 
+           COALESCE(l.data->>'sourceType', 'Unknown') as name,
+           COUNT(*) as count
+         FROM ${TableConstants.LEADS} l
+         WHERE l.company_id = $1 AND l.is_deleted = false
+         GROUP BY l.data->>'sourceType'
+         ORDER BY count DESC`,
+        [companyId]
+      );
+      const sources = sourceResult.rows.map(r => ({
+        name: r.name,
+        count: parseInt(r.count, 10)
+      }));
+
+      return {
+        stats: {
+          todayAppointments,
+          upcomingAppointments,
+          todayWalkins,
+          enrolledToday,
+        },
+        countries,
+        visaTypes,
+        sources,
+      };
+    } catch (error) {
+      console.error('[DashboardService] Error fetching receptionist stats:', error);
+      throw error;
+    }
   }
 }

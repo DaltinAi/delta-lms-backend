@@ -72,9 +72,10 @@ export class LeadsController {
   async getLeads(
     @Query('filter') filter: string,
     @Query('search') search: string,
+    @Query('tab') tab: string,
   ) {
     try {
-      const leadsData = await this.leadsService.getLeads(filter, search);
+      const leadsData = await this.leadsService.getLeads(filter, search, tab);
       return { status: 200, ...leadsData };
     } catch (error: any) {
       this.errorService.errorThrower(error.status || 500, {
@@ -126,6 +127,28 @@ export class LeadsController {
         body.remark,
       );
       return { status: 200, ...result };
+    } catch (error: any) {
+      this.errorService.errorThrower(error.status || 500, {
+        message: error.message,
+        details: error,
+      });
+    }
+  }
+
+  @Post(':id/book')
+  async bookLead(
+    @Param('id') id: string,
+    @Body() bookingData: any,
+    @CurrentUser() user: any,
+  ) {
+    try {
+      const data = await this.leadsService.bookLead(
+        id,
+        user.company_id || '00000000-0000-0000-0000-000000000000',
+        user.userId,
+        bookingData,
+      );
+      return { status: 200, message: 'Lead booked/enrolled successfully', data };
     } catch (error: any) {
       this.errorService.errorThrower(error.status || 500, {
         message: error.message,
