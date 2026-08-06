@@ -300,9 +300,9 @@ export class LeadsService {
       }
 
       // Telecaller and counsellor workflows share keys such as Interested
-      // and Cold. If a duplicate counsellor stage was submitted, resolve the
-      // matching telecaller stage before persisting the lead.
-      if (['telecaller', 'agent'].includes(userRole?.toLowerCase() || '')) {
+      // and Cold. Resolve the stage matching the current user's role.
+      const normalizedRole = userRole?.toLowerCase() || '';
+      if (['telecaller', 'agent'].includes(normalizedRole)) {
         const telecallerStageRes = await client.query(
           `SELECT telecaller_stage.id
            FROM ${TableConstants.STAGES} selected_stage
@@ -322,6 +322,27 @@ export class LeadsService {
         );
         if (telecallerStageRes.rows.length > 0) {
           targetStageId = telecallerStageRes.rows[0].id;
+        }
+      } else if (normalizedRole === 'counsellor') {
+        const counsellorStageRes = await client.query(
+          `SELECT counsellor_stage.id
+           FROM ${TableConstants.STAGES} selected_stage
+           JOIN ${TableConstants.STAGES} counsellor_stage
+             ON counsellor_stage.company_id = selected_stage.company_id
+            AND (
+              LOWER(counsellor_stage.key) = LOWER(selected_stage.key)
+              OR (
+                LOWER(selected_stage.key) = 'not_interested'
+                AND LOWER(counsellor_stage.key) = 'cold'
+              )
+            )
+            AND LOWER(counsellor_stage.role) = 'counsellor'
+           WHERE selected_stage.id = $1
+           LIMIT 1`,
+          [targetStageId],
+        );
+        if (counsellorStageRes.rows.length > 0) {
+          targetStageId = counsellorStageRes.rows[0].id;
         }
       }
 

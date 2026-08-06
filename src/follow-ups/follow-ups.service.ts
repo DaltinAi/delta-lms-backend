@@ -82,17 +82,14 @@ export class FollowUpsService {
     if (requesterId && requesterRole && requesterRole.toLowerCase() !== 'admin') {
       query += ` AND created_by = $${paramIndex++}`;
       params.push(requesterId);
-      userId = requesterId;
+    } else if (userId) {
+      query += ` AND created_by = $${paramIndex++}`;
+      params.push(userId);
     }
 
     if (leadId) {
       query += ` AND lead_id = $${paramIndex++}`;
       params.push(leadId);
-    }
-
-    if (userId && !(requesterId && requesterRole && requesterRole.toLowerCase() !== 'admin')) {
-      query += ` AND created_by = $${paramIndex++}`;
-      params.push(userId);
     }
 
     if (startDate) {

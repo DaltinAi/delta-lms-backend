@@ -50,7 +50,7 @@ export class StagesService {
 
     if (normalizedRole && normalizedRole !== 'admin') {
       const stageRole = normalizedRole === 'agent' ? 'telecaller' : normalizedRole;
-      query += ` AND LOWER(role) = $2`;
+      query += ` AND (LOWER(role) = $2 OR role IS NULL OR role = '')`;
       params.push(stageRole);
     }
 
